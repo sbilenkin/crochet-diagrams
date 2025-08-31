@@ -4,6 +4,7 @@ import './index.css'
 import 'bootstrap/dist/css/bootstrap.css';
 import Home from './Home'
 import Login from './Login'
+import Signup from './Signup'
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(sessionStorage.getItem('loggedIn') === 'true')
@@ -17,6 +18,7 @@ function App() {
           setLoggedIn(true);
           setUsername(sessionStorage.getItem('username') || '');
         }} />} />
+        <Route path="/signup" element={<Signup />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

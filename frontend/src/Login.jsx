@@ -30,7 +30,7 @@ function Login({ onLogin }) {
 
   return (
     <div className="Login">
-      <h2>Crochet Scribbles</h2>
+      <h2 className="login-welcome">Crochet Scribbles</h2>
       <form className="login-form" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="username">Username </label>
@@ -44,6 +44,8 @@ function Login({ onLogin }) {
           <button className="btn btn-primary" type="submit">Login</button>
         </div>
       </form>
+      {message && <div className="login-error">{message}</div>}
+      <button className="btn btn-primary" onClick={() => navigate('/signup')}>Sign Up</button>
     </div>
   )
 }
