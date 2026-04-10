@@ -42,11 +42,10 @@ def login(
     password: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    password_hash = bcrypt.hash(password)
-    user = db.execute(text("SELECT * FROM users WHERE username = :username AND password_hash = :password_hash"),
-        {"username": username, "password_hash": password_hash}
+    user = db.execute(text("SELECT * FROM users WHERE username = :username"),
+        {"username": username}
         ).mappings().fetchone()
-    if user:
+    if user and bcrypt.verify(password, user['password_hash']):
         return {"message": "Login successful", "user": user}
     else:
         raise HTTPException(status_code=401, detail="Invalid credentials")
