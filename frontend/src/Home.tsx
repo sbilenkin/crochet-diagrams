@@ -1,4 +1,4 @@
-import { Stage, Layer, Rect, Circle, Text } from 'react-konva';
+import { useNavigate } from 'react-router-dom';
 import './index.css'
 import 'bootstrap/dist/css/bootstrap.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
@@ -9,6 +9,7 @@ interface HomeProps {
 }
 
 function Home({ username }: HomeProps) {
+  const navigate = useNavigate();
   const handleLogout = () => {
     sessionStorage.removeItem('loggedIn');
     sessionStorage.removeItem('username');
@@ -45,29 +46,16 @@ function Home({ username }: HomeProps) {
         </ul>
       </nav>
       <main className="main-content flex-grow-1 d-flex align-items-center justify-content-center">
-        {/* Your main content goes here */}
-        <div>
-          <Stage width={window.innerWidth} height={window.innerHeight}>
-            <Layer>
-              <Text text="Try to drag shapes" fontSize={15} />
-              <Rect
-                x={20}
-                y={50}
-                width={100}
-                height={100}
-                fill="red"
-                shadowBlur={10}
-                draggable
-              />
-              <Circle
-                x={200}
-                y={100}
-                radius={50}
-                fill="green"
-                draggable
-              />
-            </Layer>
-          </Stage>
+        <div className="text-center">
+          <h2 className="mb-3">Welcome back, {username}</h2>
+          <p className="text-muted mb-4">Start a new crochet diagram or open a saved project.</p>
+          <button
+            type="button"
+            className="btn btn-primary btn-lg"
+            onClick={() => navigate('/editor')}
+          >
+            New Diagram
+          </button>
         </div>
       </main>
       <button className="logout-button btn btn-primary" onClick={handleLogout}>Log Out</button>
