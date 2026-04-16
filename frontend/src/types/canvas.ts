@@ -1,7 +1,15 @@
+export type AnchorDirection = 'up' | 'down' | 'left' | 'right' | 'radial';
+
 export interface AnchorDef {
   name: string;
   offsetX: number;
   offsetY: number;
+  direction: AnchorDirection;
+}
+
+export interface AnchorRef {
+  symbolId: string;
+  anchor: string;
 }
 
 export type SymbolCategory = 'basic' | 'advanced' | 'structural';
@@ -27,4 +35,11 @@ export interface CanvasSymbol {
 export interface Connection {
   from: { symbolId: string; anchor: string };
   to: { symbolId: string; anchor: string };
+}
+
+export interface SerializedCanvas {
+  version: 1;
+  symbols: CanvasSymbol[];
+  connections: Connection[];
+  viewport?: { offsetX: number; offsetY: number; zoom: number };
 }

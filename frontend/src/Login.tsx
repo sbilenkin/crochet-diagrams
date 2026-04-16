@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.css';
 import './index.css'
+import { setAccessToken } from './api/client';
 
 interface LoginProps {
   onLogin?: () => void;
 }
 
 interface LoginResponse {
-  message: string;
-  user: { id: number; username: string };
+  access_token: string;
+  token_type: string;
+  user: { user_id: number; username: string };
   detail?: string;
 }
 
@@ -26,13 +28,12 @@ function Login({ onLogin }: LoginProps) {
     });
     const data: LoginResponse = await response.json();
     if (response.ok) {
-      setMessage(data.message);
+      setAccessToken(data.access_token);
       sessionStorage.setItem('loggedIn', 'true');
       sessionStorage.setItem('username', data.user.username);
-      sessionStorage.setItem('userId', String(data.user.id));
-      console.log(data.user.username);
+      sessionStorage.setItem('userId', String(data.user.user_id));
       if (onLogin) onLogin();
-      navigate('/');
+      navigate('/projects');
     } else {
       setMessage(data.detail || 'Login failed');
     }

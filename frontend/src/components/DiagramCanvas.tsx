@@ -3,6 +3,8 @@ import { Stage, Layer } from 'react-konva';
 import type Konva from 'konva';
 import { useCanvasStore } from '../stores/canvasStore';
 import SymbolNode from './SymbolNode';
+import AnchorOverlay from './AnchorOverlay';
+import ConnectionOverlay from './ConnectionOverlay';
 
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 4;
@@ -74,7 +76,9 @@ function DiagramCanvas() {
     setViewport(newOffsetX, newOffsetY, newScale);
   };
 
-  const handleStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  const handleStageMouseDown = (
+    e: Konva.KonvaEventObject<MouseEvent | TouchEvent>,
+  ) => {
     if (e.target === e.target.getStage()) {
       selectSymbol(null);
     }
@@ -106,6 +110,7 @@ function DiagramCanvas() {
         onDragEnd={handleStageDragEnd}
       >
         <Layer>
+          <ConnectionOverlay />
           {symbols.map((sym) => (
             <SymbolNode
               key={sym.id}
@@ -113,6 +118,7 @@ function DiagramCanvas() {
               selected={sym.id === selectedSymbolId}
             />
           ))}
+          <AnchorOverlay />
         </Layer>
       </Stage>
     </div>

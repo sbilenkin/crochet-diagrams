@@ -4,7 +4,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from passlib.hash import bcrypt
 
-from db.database import SessionLocal
+from auth import create_access_token, get_db
+from routes.projects import router as projects_router
 
 app = FastAPI()
 
@@ -16,16 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(projects_router)
+
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # Database health check endpoint, will remove in prod
 @app.get("/health")
@@ -46,7 +42,12 @@ def login(
         {"username": username}
         ).mappings().fetchone()
     if user and bcrypt.verify(password, user['password_hash']):
-        return {"message": "Login successful", "user": user}
+        token = create_access_token(user['user_id'])
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "user": {"user_id": user['user_id'], "username": user['username']},
+        }
     else:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 

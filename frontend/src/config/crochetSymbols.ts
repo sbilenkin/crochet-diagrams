@@ -1,4 +1,4 @@
-import type { SymbolDef } from '../types/canvas';
+import type { AnchorDef, SymbolDef } from '../types/canvas';
 import chainSvg from '../assets/symbols/chain.svg';
 import slipStitchSvg from '../assets/symbols/slip_stitch.svg';
 import singleCrochetSvg from '../assets/symbols/single_crochet.svg';
@@ -9,18 +9,14 @@ import magicRingSvg from '../assets/symbols/magic_ring.svg';
 import increaseSvg from '../assets/symbols/increase.svg';
 import decreaseSvg from '../assets/symbols/decrease.svg';
 
-const verticalStitchAnchors = [
-  { name: 'bottom', offsetX: 0, offsetY: 20 },
-  { name: 'top', offsetX: 0, offsetY: -20 },
-];
-
-function radialAnchors(count: number, radius: number) {
+function radialAnchors(count: number, radius: number): AnchorDef[] {
   return Array.from({ length: count }, (_, i) => {
     const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
     return {
       name: `slot_${i + 1}`,
       offsetX: Math.cos(angle) * radius,
       offsetY: Math.sin(angle) * radius,
+      direction: 'radial' as const,
     };
   });
 }
@@ -34,8 +30,8 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
     height: 20,
     category: 'basic',
     anchors: [
-      { name: 'left', offsetX: -20, offsetY: 0 },
-      { name: 'right', offsetX: 20, offsetY: 0 },
+      { name: 'left', offsetX: -20, offsetY: 0, direction: 'left' },
+      { name: 'right', offsetX: 20, offsetY: 0, direction: 'right' },
     ],
   },
   slip_stitch: {
@@ -46,8 +42,8 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
     height: 20,
     category: 'basic',
     anchors: [
-      { name: 'bottom', offsetX: 0, offsetY: 10 },
-      { name: 'top', offsetX: 0, offsetY: -10 },
+      { name: 'bottom', offsetX: 0, offsetY: 10, direction: 'down' },
+      { name: 'top', offsetX: 0, offsetY: -10, direction: 'up' },
     ],
   },
   single_crochet: {
@@ -58,8 +54,8 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
     height: 30,
     category: 'basic',
     anchors: [
-      { name: 'bottom', offsetX: 0, offsetY: 15 },
-      { name: 'top', offsetX: 0, offsetY: -15 },
+      { name: 'bottom', offsetX: 0, offsetY: 15, direction: 'down' },
+      { name: 'top', offsetX: 0, offsetY: -15, direction: 'up' },
     ],
   },
   half_double: {
@@ -70,8 +66,8 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
     height: 40,
     category: 'basic',
     anchors: [
-      { name: 'bottom', offsetX: 0, offsetY: 20 },
-      { name: 'top', offsetX: 0, offsetY: -20 },
+      { name: 'bottom', offsetX: 0, offsetY: 20, direction: 'down' },
+      { name: 'top', offsetX: 0, offsetY: -20, direction: 'up' },
     ],
   },
   double_crochet: {
@@ -81,7 +77,10 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
     width: 30,
     height: 50,
     category: 'basic',
-    anchors: verticalStitchAnchors.map((a) => ({ ...a, offsetY: a.offsetY < 0 ? -25 : 25 })),
+    anchors: [
+      { name: 'bottom', offsetX: 0, offsetY: 25, direction: 'down' },
+      { name: 'top', offsetX: 0, offsetY: -25, direction: 'up' },
+    ],
   },
   treble_crochet: {
     key: 'treble_crochet',
@@ -91,8 +90,8 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
     height: 60,
     category: 'basic',
     anchors: [
-      { name: 'bottom', offsetX: 0, offsetY: 30 },
-      { name: 'top', offsetX: 0, offsetY: -30 },
+      { name: 'bottom', offsetX: 0, offsetY: 30, direction: 'down' },
+      { name: 'top', offsetX: 0, offsetY: -30, direction: 'up' },
     ],
   },
   magic_ring: {
@@ -112,9 +111,9 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
     height: 40,
     category: 'advanced',
     anchors: [
-      { name: 'bottom', offsetX: 0, offsetY: 20 },
-      { name: 'top_left', offsetX: -16, offsetY: -20 },
-      { name: 'top_right', offsetX: 16, offsetY: -20 },
+      { name: 'bottom', offsetX: 0, offsetY: 20, direction: 'down' },
+      { name: 'top_left', offsetX: -16, offsetY: -20, direction: 'up' },
+      { name: 'top_right', offsetX: 16, offsetY: -20, direction: 'up' },
     ],
   },
   decrease: {
@@ -125,9 +124,9 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
     height: 40,
     category: 'advanced',
     anchors: [
-      { name: 'bottom_left', offsetX: -16, offsetY: 20 },
-      { name: 'bottom_right', offsetX: 16, offsetY: 20 },
-      { name: 'top', offsetX: 0, offsetY: -20 },
+      { name: 'bottom_left', offsetX: -16, offsetY: 20, direction: 'down' },
+      { name: 'bottom_right', offsetX: 16, offsetY: 20, direction: 'down' },
+      { name: 'top', offsetX: 0, offsetY: -20, direction: 'up' },
     ],
   },
 };
