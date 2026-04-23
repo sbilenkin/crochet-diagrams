@@ -1,4 +1,4 @@
-# Crochet Scribbles
+# Crochet Diagrams
 
 A web app for drafting crochet diagrams. Drag crochet stitch symbols onto a
 canvas, snap them together at anchor points to build chains and stitch
