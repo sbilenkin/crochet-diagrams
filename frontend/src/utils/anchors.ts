@@ -1,7 +1,7 @@
 import { CROCHET_SYMBOLS } from '../config/crochetSymbols';
+import { areTypesCompatible } from '../config/anchorTypes';
 import type {
   AnchorDef,
-  AnchorDirection,
   AnchorRef,
   CanvasSymbol,
   Connection,
@@ -36,19 +36,6 @@ export function getWorldAnchors(symbol: CanvasSymbol): WorldAnchor[] {
     anchor: a,
     ...anchorWorldPos(symbol, a),
   }));
-}
-
-export function areCompatible(
-  a: AnchorDirection,
-  b: AnchorDirection,
-): boolean {
-  if (a === 'up' && b === 'down') return true;
-  if (a === 'down' && b === 'up') return true;
-  if (a === 'left' && b === 'right') return true;
-  if (a === 'right' && b === 'left') return true;
-  if (a === 'radial' && b === 'down') return true;
-  if (a === 'down' && b === 'radial') return true;
-  return false;
 }
 
 export function isAnchorOccupied(
@@ -99,7 +86,7 @@ export function findSnapMatch(
       const otherRef: AnchorRef = { symbolId: other.id, anchor: oa.name };
       if (isAnchorOccupied(connections, otherRef)) continue;
       for (const da of draggedAnchors) {
-        if (!areCompatible(da.anchor.direction, oa.direction)) continue;
+        if (!areTypesCompatible(da.anchor.type, oa.type)) continue;
         const draggedRef: AnchorRef = {
           symbolId: draggedSymbol.id,
           anchor: da.anchor.name,

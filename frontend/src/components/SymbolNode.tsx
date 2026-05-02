@@ -43,6 +43,7 @@ function SymbolNode({ symbol, selected }: Props) {
   const handleDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
     e.cancelBubble = true;
     const store = useCanvasStore.getState();
+    store.beginHistoryBatch();
     store.selectSymbol(symbol.id);
 
     // Shift+drag breaks connections so the user can detach a symbol.
@@ -156,6 +157,7 @@ function SymbolNode({ symbol, selected }: Props) {
       store.connectSymbols(match.dragged, match.target);
     }
     store.setDragState(null);
+    store.commitHistoryBatch();
   };
 
   return (

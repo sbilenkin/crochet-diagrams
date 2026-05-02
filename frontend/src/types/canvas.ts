@@ -1,7 +1,10 @@
+import type { AnchorType } from '../config/anchorTypes';
+
 export type AnchorDirection = 'up' | 'down' | 'left' | 'right' | 'radial';
 
 export interface AnchorDef {
   name: string;
+  type: AnchorType;
   offsetX: number;
   offsetY: number;
   direction: AnchorDirection;
@@ -38,7 +41,7 @@ export interface Connection {
 }
 
 export interface SerializedCanvas {
-  version: 1;
+  version: 1 | 2;
   symbols: CanvasSymbol[];
   connections: Connection[];
   viewport?: { offsetX: number; offsetY: number; zoom: number };
