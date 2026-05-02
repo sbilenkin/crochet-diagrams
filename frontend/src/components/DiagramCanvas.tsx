@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Stage, Layer } from 'react-konva';
 import type Konva from 'konva';
 import { useCanvasStore } from '../stores/canvasStore';
@@ -10,6 +10,10 @@ const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 4;
 
 interface Size { width: number; height: number }
+
+export type DiagramCanvasHandle = {
+  getStage: () => Konva.Stage | null;
+};
 
 function useSize(ref: React.RefObject<HTMLDivElement | null>): Size {
   const [size, setSize] = useState<Size>({ width: 0, height: 0 });
@@ -26,10 +30,12 @@ function useSize(ref: React.RefObject<HTMLDivElement | null>): Size {
   return size;
 }
 
-function DiagramCanvas() {
+const DiagramCanvas = forwardRef<DiagramCanvasHandle>((_props, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const size = useSize(containerRef);
+
+  useImperativeHandle(ref, () => ({ getStage: () => stageRef.current }), []);
 
   const symbols = useCanvasStore((s) => s.symbols);
   const selectedSymbolId = useCanvasStore((s) => s.selectedSymbolId);
@@ -39,12 +45,26 @@ function DiagramCanvas() {
   const selectSymbol = useCanvasStore((s) => s.selectSymbol);
   const deleteSymbol = useCanvasStore((s) => s.deleteSymbol);
   const setViewport = useCanvasStore((s) => s.setViewport);
+  const undo = useCanvasStore((s) => s.undo);
+  const redo = useCanvasStore((s) => s.redo);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
       if (target && target.isContentEditable) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (mod && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault();
+        redo();
+        return;
+      }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSymbolId) {
         e.preventDefault();
         deleteSymbol(selectedSymbolId);
@@ -52,7 +72,7 @@ function DiagramCanvas() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedSymbolId, deleteSymbol]);
+  }, [selectedSymbolId, deleteSymbol, undo, redo]);
 
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
@@ -123,6 +143,8 @@ function DiagramCanvas() {
       </Stage>
     </div>
   );
-}
+});
+
+DiagramCanvas.displayName = 'DiagramCanvas';
 
 export default DiagramCanvas;

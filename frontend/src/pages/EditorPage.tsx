@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import SymbolPalette from '../components/SymbolPalette';
-import DiagramCanvas from '../components/DiagramCanvas';
+import DiagramCanvas, { type DiagramCanvasHandle } from '../components/DiagramCanvas';
 import SaveIndicator from '../components/SaveIndicator';
 import { useCanvasStore } from '../stores/canvasStore';
 import { getProject, saveCanvas, updateProject } from '../api/projects';
 import { ApiError } from '../api/client';
+import { exportPDF, exportPNG, generateThumbnail } from '../utils/export';
 
 const AUTO_SAVE_IDLE_MS = 3000;
 
@@ -13,14 +14,28 @@ function EditorPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const canvasAreaRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<DiagramCanvasHandle | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [projectName, setProjectName] = useState('');
   const lastSavedName = useRef('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const dirty = useCanvasStore((s) => s.dirty);
+  const hasSymbols = useCanvasStore((s) => s.symbols.length > 0);
+  const canUndo = useCanvasStore((s) => s.past.length > 0);
+  const canRedo = useCanvasStore((s) => s.future.length > 0);
+  const undo = useCanvasStore((s) => s.undo);
+  const redo = useCanvasStore((s) => s.redo);
+
+  useEffect(() => {
+    if (!exportOpen) return;
+    const onDocClick = () => setExportOpen(false);
+    window.addEventListener('click', onDocClick);
+    return () => window.removeEventListener('click', onDocClick);
+  }, [exportOpen]);
 
   const getViewportCenter = useCallback(() => {
     const store = useCanvasStore.getState();
@@ -64,7 +79,13 @@ function EditorPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      await saveCanvas(projectId, useCanvasStore.getState().serialize());
+      const stage = canvasRef.current?.getStage();
+      const thumbnail = stage ? generateThumbnail(stage) : null;
+      await saveCanvas(
+        projectId,
+        useCanvasStore.getState().serialize(),
+        thumbnail ?? undefined,
+      );
       useCanvasStore.getState().markClean();
     } catch (err) {
       setSaveError((err as Error).message);
@@ -72,6 +93,20 @@ function EditorPage() {
       setSaving(false);
     }
   }, [projectId]);
+
+  const handleExportPNG = useCallback(() => {
+    const stage = canvasRef.current?.getStage();
+    if (!stage) return;
+    exportPNG(stage, projectName || 'diagram');
+    setExportOpen(false);
+  }, [projectName]);
+
+  const handleExportPDF = useCallback(() => {
+    const stage = canvasRef.current?.getStage();
+    if (!stage) return;
+    exportPDF(stage, projectName || 'diagram');
+    setExportOpen(false);
+  }, [projectName]);
 
   // Debounced auto-save: save after dirty && AUTO_SAVE_IDLE_MS of no further changes.
   useEffect(() => {
@@ -115,12 +150,60 @@ function EditorPage() {
         />
         <SaveIndicator saving={saving} dirty={dirty} error={saveError} />
         <div className="ms-auto d-flex gap-2">
-          <button type="button" className="btn btn-sm btn-outline-secondary" disabled>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary"
+            onClick={undo}
+            disabled={!canUndo || loading}
+            title="Undo (Ctrl+Z)"
+          >
             Undo
           </button>
-          <button type="button" className="btn btn-sm btn-outline-secondary" disabled>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary"
+            onClick={redo}
+            disabled={!canRedo || loading}
+            title="Redo (Ctrl+Shift+Z)"
+          >
             Redo
           </button>
+          <div className="position-relative">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExportOpen((o) => !o);
+              }}
+              disabled={loading || !hasSymbols}
+              title={hasSymbols ? 'Export diagram' : 'Add symbols first'}
+            >
+              Export ▾
+            </button>
+            {exportOpen && (
+              <div
+                className="position-absolute end-0 mt-1 bg-white border rounded shadow-sm"
+                style={{ zIndex: 1050, minWidth: 160 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link w-100 text-start text-decoration-none"
+                  onClick={handleExportPNG}
+                >
+                  Export as PNG
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link w-100 text-start text-decoration-none"
+                  onClick={handleExportPDF}
+                >
+                  Export as PDF
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             className="btn btn-sm btn-primary"
@@ -139,7 +222,7 @@ function EditorPage() {
               Loading project…
             </div>
           ) : (
-            <DiagramCanvas />
+            <DiagramCanvas ref={canvasRef} />
           )}
         </div>
       </div>
