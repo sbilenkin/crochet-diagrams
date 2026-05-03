@@ -12,11 +12,19 @@ interface SymbolMove {
   y: number;
 }
 
+export interface TentativeDetach {
+  symbolAnchor: AnchorRef;
+  formerTarget: AnchorRef;
+  targetWorld: { x: number; y: number };
+}
+
 interface DragState {
   activeId: string;
   rootX: number;
   rootY: number;
+  magneticTarget: { dragged: AnchorRef; target: AnchorRef } | null;
   snapTarget: { dragged: AnchorRef; target: AnchorRef } | null;
+  tentativeDetaches: TentativeDetach[];
 }
 
 interface Snapshot {

@@ -7,7 +7,11 @@ import type {
   Connection,
 } from '../types/canvas';
 
-export const SNAP_THRESHOLD = 18;
+export const MAGNETIC_ZONE = 40;
+export const SNAP_ZONE = 15;
+export const DETACH_THRESHOLD = 40;
+export const SNAP_ANIM_MS = 180;
+export const MAGNETIC_BIAS = 0.15;
 
 export interface WorldAnchor {
   symbolId: string;
@@ -55,13 +59,15 @@ export interface SnapMatch {
   draggedAnchor: AnchorDef;
   targetAnchor: AnchorDef;
   targetWorld: { x: number; y: number };
+  distance: number;
+  zone: 'snap' | 'magnetic';
 }
 
 /**
- * Find the nearest compatible target anchor for a dragged symbol whose CURRENT
- * world position is (draggedX, draggedY). Excludes anchors on the dragged
- * symbol itself and anchors on `excludeIds` (symbols moving as part of the
- * dragged group).
+ * Find the nearest compatible target anchor within MAGNETIC_ZONE of the dragged
+ * symbol's anchors. Tags the result as 'snap' if within SNAP_ZONE, else 'magnetic'.
+ * Excludes anchors on the dragged symbol itself and anchors on `excludeIds`
+ * (symbols moving as part of the dragged group).
  */
 export function findSnapMatch(
   draggedSymbol: CanvasSymbol,
@@ -77,7 +83,7 @@ export function findSnapMatch(
   }));
 
   let best: SnapMatch | null = null;
-  let bestDist = SNAP_THRESHOLD;
+  let bestDistSq = MAGNETIC_ZONE * MAGNETIC_ZONE;
 
   for (const other of others) {
     if (excludeIds.has(other.id)) continue;
@@ -94,15 +100,18 @@ export function findSnapMatch(
         if (isAnchorOccupied(connections, draggedRef)) continue;
         const dx = da.world.x - ow.x;
         const dy = da.world.y - ow.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist < bestDist) {
-          bestDist = dist;
+        const distSq = dx * dx + dy * dy;
+        if (distSq < bestDistSq) {
+          bestDistSq = distSq;
+          const distance = Math.sqrt(distSq);
           best = {
             dragged: draggedRef,
             target: otherRef,
             draggedAnchor: da.anchor,
             targetAnchor: oa,
             targetWorld: ow,
+            distance,
+            zone: distance <= SNAP_ZONE ? 'snap' : 'magnetic',
           };
         }
       }
