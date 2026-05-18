@@ -35,6 +35,7 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
       { name: 'left', type: AnchorType.CHAIN_LEFT, offsetX: -20, offsetY: 0, direction: 'left' },
       { name: 'right', type: AnchorType.CHAIN_RIGHT, offsetX: 20, offsetY: 0, direction: 'right' },
       { name: 'top', type: AnchorType.CHAIN_TOP, offsetX: 0, offsetY: -10, direction: 'up' },
+      { name: 'space', type: AnchorType.SPACE, offsetX: 0, offsetY: -18, direction: 'up' },
     ],
   },
   slip_stitch: {

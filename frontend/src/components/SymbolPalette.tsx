@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { SYMBOL_LIST } from '../config/crochetSymbols';
 import { useCanvasStore } from '../stores/canvasStore';
 import type { SymbolCategory, SymbolDef } from '../types/canvas';
+import ChainBulkAddPopover from './ChainBulkAddPopover';
 
 const CATEGORY_ORDER: SymbolCategory[] = ['basic', 'structural', 'advanced'];
 const CATEGORY_LABELS: Record<SymbolCategory, string> = {
@@ -16,6 +17,10 @@ interface Props {
 
 function SymbolPalette({ viewportCenter }: Props) {
   const addSymbol = useCanvasStore((s) => s.addSymbol);
+  const addChainSequence = useCanvasStore((s) => s.addChainSequence);
+  const [chainPopoverOpen, setChainPopoverOpen] = useState(false);
+  const [lastChainCount, setLastChainCount] = useState(10);
+  const chainBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const grouped = useMemo(() => {
     const out: Record<SymbolCategory, SymbolDef[]> = {
@@ -24,6 +29,22 @@ function SymbolPalette({ viewportCenter }: Props) {
     for (const def of SYMBOL_LIST) out[def.category].push(def);
     return out;
   }, []);
+
+  const handleClick = (def: SymbolDef) => {
+    if (def.key === 'chain') {
+      setChainPopoverOpen((open) => !open);
+      return;
+    }
+    const { x, y } = viewportCenter();
+    addSymbol(def.key, x, y);
+  };
+
+  const handleChainSubmit = (count: number) => {
+    const { x, y } = viewportCenter();
+    addChainSequence(count, x, y);
+    setLastChainCount(count);
+    setChainPopoverOpen(false);
+  };
 
   return (
     <aside
@@ -37,29 +58,38 @@ function SymbolPalette({ viewportCenter }: Props) {
             {CATEGORY_LABELS[cat]}
           </div>
           <div className="d-flex flex-column gap-1">
-            {grouped[cat].map((def) => (
-              <button
-                key={def.key}
-                type="button"
-                className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 text-start"
-                onClick={() => {
-                  const { x, y } = viewportCenter();
-                  addSymbol(def.key, x, y);
-                }}
-              >
-                <img
-                  src={def.svgPath}
-                  alt=""
-                  width={24}
-                  height={24}
-                  style={{ flexShrink: 0 }}
-                />
-                <span>{def.displayName}</span>
-              </button>
-            ))}
+            {grouped[cat].map((def) => {
+              const isChain = def.key === 'chain';
+              return (
+                <button
+                  key={def.key}
+                  ref={isChain ? chainBtnRef : undefined}
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 text-start w-100"
+                  onClick={() => handleClick(def)}
+                >
+                  <img
+                    src={def.svgPath}
+                    alt=""
+                    width={24}
+                    height={24}
+                    style={{ flexShrink: 0 }}
+                  />
+                  <span>{def.displayName}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       ))}
+      {chainPopoverOpen && (
+        <ChainBulkAddPopover
+          defaultCount={lastChainCount}
+          anchorRef={chainBtnRef}
+          onSubmit={handleChainSubmit}
+          onClose={() => setChainPopoverOpen(false)}
+        />
+      )}
     </aside>
   );
 }

@@ -17,6 +17,21 @@ import {
 import { konvaRegistry } from '../utils/konvaRegistry';
 import type { TentativeDetach } from '../stores/canvasStore';
 
+// Tracks the last pose each Konva node was *visually* settled at — updated by
+// both the drag-end tween and the prop-watching useEffect. Lets the effect tell
+// "react-konva applied a pose I haven't shown the user yet" (needs tween) from
+// "react-konva applied a pose I already tweened to" (no-op).
+interface Pose {
+  x: number;
+  y: number;
+  rotation: number;
+}
+const lastSettledPoseRegistry = new Map<string, Pose>();
+
+function poseEqual(a: Pose, b: Pose): boolean {
+  return a.x === b.x && a.y === b.y && a.rotation === b.rotation;
+}
+
 function useHtmlImage(src: string): HTMLImageElement | undefined {
   const [img, setImg] = useState<HTMLImageElement | undefined>(undefined);
   useEffect(() => {
@@ -84,8 +99,60 @@ function SymbolNode({ symbol, selected }: Props) {
   const [animating, setAnimating] = useState(false);
 
   useEffect(() => {
-    return () => konvaRegistry.set(symbol.id, null);
+    return () => {
+      konvaRegistry.set(symbol.id, null);
+      lastSettledPoseRegistry.delete(symbol.id);
+    };
   }, [symbol.id]);
+
+  // Animate prop-driven pose changes (e.g., fan-out re-layout after a connect).
+  // Skips the drag path (instant follow for siblings, drag-end has its own tween).
+  useEffect(() => {
+    const node = groupRef.current;
+    if (!node) return;
+    const target: Pose = {
+      x: symbol.x,
+      y: symbol.y,
+      rotation: symbol.rotation,
+    };
+    const settled = lastSettledPoseRegistry.get(symbol.id);
+
+    // First time we see this symbol — establish the baseline, no animation.
+    if (!settled) {
+      lastSettledPoseRegistry.set(symbol.id, target);
+      return;
+    }
+    if (poseEqual(settled, target)) return;
+
+    // During an active drag, react-konva's declarative update already moved
+    // the node; let it follow instantly rather than starting a tween.
+    const dragActive =
+      useCanvasStore.getState().dragState !== null ||
+      sessionRef.current !== null;
+    if (dragActive) {
+      lastSettledPoseRegistry.set(symbol.id, target);
+      return;
+    }
+
+    // react-konva has already set the node to `target`. Snap back to the
+    // last-settled pose so Konva.to() animates the full distance.
+    node.x(settled.x);
+    node.y(settled.y);
+    node.rotation(settled.rotation);
+
+    setAnimating(true);
+    node.to({
+      x: target.x,
+      y: target.y,
+      rotation: target.rotation,
+      duration: SNAP_ANIM_MS / 1000,
+      easing: Konva.Easings.EaseOut,
+      onFinish: () => {
+        lastSettledPoseRegistry.set(symbol.id, target);
+        setAnimating(false);
+      },
+    });
+  }, [symbol.id, symbol.x, symbol.y, symbol.rotation]);
 
   if (!def) return null;
   const { width, height } = def;
@@ -301,7 +368,16 @@ function SymbolNode({ symbol, selected }: Props) {
           y: pos.y,
           duration: dur,
           easing,
-          onFinish: onEach,
+          onFinish: () => {
+            // Record the visually-settled pose so the prop-watching effect
+            // doesn't redundantly re-animate when commit() updates the store.
+            lastSettledPoseRegistry.set(id, {
+              x: pos.x,
+              y: pos.y,
+              rotation: node.rotation(),
+            });
+            onEach();
+          },
         });
       });
       if (pending === 0) commit();

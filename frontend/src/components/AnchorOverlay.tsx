@@ -5,9 +5,20 @@ import {
   getSymbolAnchors,
   isAnchorOccupied,
 } from '../utils/anchors';
+import { AnchorType } from '../config/anchorTypes';
 import type { AnchorRef } from '../types/canvas';
 
 const ANCHOR_RADIUS = 4;
+
+const ANCHOR_COLOR: Record<AnchorType, string> = {
+  STITCH_TOP: '#22c55e',
+  STITCH_BASE: '#22c55e',
+  CHAIN_LEFT: '#22c55e',
+  CHAIN_RIGHT: '#22c55e',
+  CHAIN_TOP: '#22c55e',
+  RING_SLOT: '#22c55e',
+  SPACE: '#3b82f6',
+};
 
 function refMatches(a: AnchorRef, symbolId: string, anchorName: string): boolean {
   return a.symbolId === symbolId && a.anchor === anchorName;
@@ -109,7 +120,7 @@ function AnchorOverlay() {
               refMatches(snapTarget.dragged, sym.id, anchor.name));
 
           let radius = ANCHOR_RADIUS;
-          let fill = occupied ? '#9ca3af' : '#22c55e';
+          let fill = occupied ? '#9ca3af' : ANCHOR_COLOR[anchor.type];
           let shadowBlur = 0;
           if (isSnap) {
             radius = 8;
