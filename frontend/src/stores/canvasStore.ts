@@ -5,18 +5,34 @@ import type {
   Connection,
   SerializedCanvas,
 } from '../types/canvas';
+import { maxConnectionsFor, type AnchorType } from '../config/anchorTypes';
+import {
+  getSymbolAnchors,
+  isTopSideAnchorType,
+  relayoutFromMany,
+  type RelayoutMove,
+} from '../utils/anchors';
 
 interface SymbolMove {
   id: string;
   x: number;
   y: number;
+  rotation?: number;
+}
+
+export interface TentativeDetach {
+  symbolAnchor: AnchorRef;
+  formerTarget: AnchorRef;
+  targetWorld: { x: number; y: number };
 }
 
 interface DragState {
   activeId: string;
   rootX: number;
   rootY: number;
+  magneticTarget: { dragged: AnchorRef; target: AnchorRef } | null;
   snapTarget: { dragged: AnchorRef; target: AnchorRef } | null;
+  tentativeDetaches: TentativeDetach[];
 }
 
 interface Snapshot {
@@ -42,6 +58,7 @@ interface CanvasState {
   batching: boolean;
 
   addSymbol: (type: string, x: number, y: number) => void;
+  addChainSequence: (count: number, x: number, y: number) => void;
   moveSymbol: (id: string, x: number, y: number) => void;
   moveSymbols: (updates: SymbolMove[]) => void;
   selectSymbol: (id: string | null) => void;
@@ -76,6 +93,34 @@ function takeSnapshot(state: CanvasState): Snapshot {
 
 function connectionTouches(c: Connection, ref: AnchorRef): boolean {
   return sameAnchor(c.from, ref) || sameAnchor(c.to, ref);
+}
+
+function getAnchorTypeAt(
+  symbols: CanvasSymbol[],
+  ref: AnchorRef,
+): AnchorType | null {
+  const sym = symbols.find((s) => s.id === ref.symbolId);
+  if (!sym) return null;
+  const anchor = getSymbolAnchors(sym).find((a) => a.name === ref.anchor);
+  return anchor?.type ?? null;
+}
+
+function applyMoves(
+  symbols: CanvasSymbol[],
+  moves: RelayoutMove[],
+): CanvasSymbol[] {
+  if (moves.length === 0) return symbols;
+  const moveMap = new Map(moves.map((m) => [m.id, m]));
+  return symbols.map((s) => {
+    const m = moveMap.get(s.id);
+    return m ? { ...s, x: m.x, y: m.y, rotation: m.rotation } : s;
+  });
+}
+
+function topSideRefs(symbol: CanvasSymbol): AnchorRef[] {
+  return getSymbolAnchors(symbol)
+    .filter((a) => isTopSideAnchorType(a.type))
+    .map((a) => ({ symbolId: symbol.id, anchor: a.name }));
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -124,6 +169,38 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     });
   },
 
+  addChainSequence: (count, x, y) => {
+    if (count < 1) return;
+    get()._pushHistory();
+    set((state) => {
+      const CHAIN_W = 40;
+      const startX = x - ((count - 1) * CHAIN_W) / 2;
+      const newSymbols: CanvasSymbol[] = [];
+      const newConnections: Connection[] = [];
+      for (let i = 0; i < count; i++) {
+        const id = crypto.randomUUID();
+        newSymbols.push({
+          id,
+          type: 'chain',
+          x: startX + i * CHAIN_W,
+          y,
+          rotation: 0,
+        });
+        if (i > 0) {
+          newConnections.push({
+            from: { symbolId: newSymbols[i - 1].id, anchor: 'right' },
+            to: { symbolId: id, anchor: 'left' },
+          });
+        }
+      }
+      return {
+        symbols: [...state.symbols, ...newSymbols],
+        connections: [...state.connections, ...newConnections],
+        dirty: true,
+      };
+    });
+  },
+
   moveSymbol: (id, x, y) => {
     get()._pushHistory();
     set((state) => ({
@@ -140,7 +217,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return {
         symbols: state.symbols.map((s) => {
           const u = map.get(s.id);
-          return u ? { ...s, x: u.x, y: u.y } : s;
+          if (!u) return s;
+          return u.rotation !== undefined
+            ? { ...s, x: u.x, y: u.y, rotation: u.rotation }
+            : { ...s, x: u.x, y: u.y };
         }),
         dirty: true,
       };
@@ -151,15 +231,39 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   deleteSymbol: (id) => {
     get()._pushHistory();
-    set((state) => ({
-      symbols: state.symbols.filter((s) => s.id !== id),
-      connections: state.connections.filter(
+    set((state) => {
+      const parentRefs = new Map<string, AnchorRef>();
+      for (const c of state.connections) {
+        if (c.from.symbolId === id) {
+          const key = `${c.to.symbolId}:${c.to.anchor}`;
+          parentRefs.set(key, { symbolId: c.to.symbolId, anchor: c.to.anchor });
+        } else if (c.to.symbolId === id) {
+          const key = `${c.from.symbolId}:${c.from.anchor}`;
+          parentRefs.set(key, {
+            symbolId: c.from.symbolId,
+            anchor: c.from.anchor,
+          });
+        }
+      }
+
+      const newConnections = state.connections.filter(
         (c) => c.from.symbolId !== id && c.to.symbolId !== id,
-      ),
-      selectedSymbolId:
-        state.selectedSymbolId === id ? null : state.selectedSymbolId,
-      dirty: true,
-    }));
+      );
+      const newSymbols = state.symbols.filter((s) => s.id !== id);
+      const moves = relayoutFromMany(
+        Array.from(parentRefs.values()),
+        newSymbols,
+        newConnections,
+      );
+
+      return {
+        symbols: applyMoves(newSymbols, moves),
+        connections: newConnections,
+        selectedSymbolId:
+          state.selectedSymbolId === id ? null : state.selectedSymbolId,
+        dirty: true,
+      };
+    });
   },
 
   setViewport: (offsetX, offsetY, zoom) => set({ offsetX, offsetY, zoom }),
@@ -178,11 +282,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   connectSymbols: (a, b) => {
     get()._pushHistory();
     set((state) => {
-      const filtered = state.connections.filter(
-        (c) => !connectionTouches(c, a) && !connectionTouches(c, b),
-      );
+      const typeA = getAnchorTypeAt(state.symbols, a);
+      const typeB = getAnchorTypeAt(state.symbols, b);
+
+      let filtered = state.connections;
+      if (typeA && maxConnectionsFor(typeA) === 1) {
+        filtered = filtered.filter((c) => !connectionTouches(c, a));
+      }
+      if (typeB && maxConnectionsFor(typeB) === 1) {
+        filtered = filtered.filter((c) => !connectionTouches(c, b));
+      }
+
+      const newConnections = [...filtered, { from: a, to: b }];
+      const moves = relayoutFromMany([a, b], state.symbols, newConnections);
+
       return {
-        connections: [...filtered, { from: a, to: b }],
+        connections: newConnections,
+        symbols: applyMoves(state.symbols, moves),
         dirty: true,
       };
     });
@@ -190,20 +306,88 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   disconnectAtAnchor: (ref) => {
     get()._pushHistory();
-    set((state) => ({
-      connections: state.connections.filter((c) => !connectionTouches(c, ref)),
-      dirty: true,
-    }));
+    set((state) => {
+      const severedIds = new Set<string>();
+      for (const c of state.connections) {
+        if (c.from.symbolId === ref.symbolId && c.from.anchor === ref.anchor) {
+          severedIds.add(c.to.symbolId);
+        } else if (
+          c.to.symbolId === ref.symbolId &&
+          c.to.anchor === ref.anchor
+        ) {
+          severedIds.add(c.from.symbolId);
+        }
+      }
+
+      const newConnections = state.connections.filter(
+        (c) => !connectionTouches(c, ref),
+      );
+
+      const workingSymbols = state.symbols.map((s) =>
+        severedIds.has(s.id) ? { ...s, rotation: 0 } : s,
+      );
+
+      const startAnchors: AnchorRef[] = [ref];
+      for (const id of severedIds) {
+        const sym = workingSymbols.find((s) => s.id === id);
+        if (sym) startAnchors.push(...topSideRefs(sym));
+      }
+
+      const moves = relayoutFromMany(
+        startAnchors,
+        workingSymbols,
+        newConnections,
+      );
+
+      return {
+        connections: newConnections,
+        symbols: applyMoves(workingSymbols, moves),
+        dirty: true,
+      };
+    });
   },
 
   disconnectAllForSymbol: (symbolId) => {
     get()._pushHistory();
-    set((state) => ({
-      connections: state.connections.filter(
+    set((state) => {
+      const parentRefs = new Map<string, AnchorRef>();
+      for (const c of state.connections) {
+        if (c.from.symbolId === symbolId) {
+          const key = `${c.to.symbolId}:${c.to.anchor}`;
+          parentRefs.set(key, { symbolId: c.to.symbolId, anchor: c.to.anchor });
+        } else if (c.to.symbolId === symbolId) {
+          const key = `${c.from.symbolId}:${c.from.anchor}`;
+          parentRefs.set(key, {
+            symbolId: c.from.symbolId,
+            anchor: c.from.anchor,
+          });
+        }
+      }
+
+      const newConnections = state.connections.filter(
         (c) => c.from.symbolId !== symbolId && c.to.symbolId !== symbolId,
-      ),
-      dirty: true,
-    }));
+      );
+
+      const workingSymbols = state.symbols.map((s) =>
+        s.id === symbolId ? { ...s, rotation: 0 } : s,
+      );
+
+      const startAnchors = Array.from(parentRefs.values());
+      const sym = workingSymbols.find((s) => s.id === symbolId);
+      if (sym) startAnchors.push(...topSideRefs(sym));
+
+      const moves = relayoutFromMany(
+        startAnchors,
+        workingSymbols,
+        newConnections,
+      );
+
+      return {
+        connections: newConnections,
+        symbols: applyMoves(workingSymbols, moves),
+        dirty: true,
+      };
+    });
   },
 
   setDragState: (dragState) => set({ dragState }),
