@@ -62,6 +62,7 @@ interface CanvasState {
 
   addSymbol: (type: string, x: number, y: number) => void;
   addChainSequence: (count: number, x: number, y: number) => void;
+  addChainRing: (count: number, x: number, y: number) => void;
   moveSymbol: (id: string, x: number, y: number) => void;
   moveSymbols: (updates: SymbolMove[]) => void;
   selectSymbol: (id: string | null) => void;
@@ -206,6 +207,82 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       }
       return {
         symbols: [...state.symbols, ...newSymbols],
+        connections: [...state.connections, ...newConnections],
+        dirty: true,
+      };
+    });
+  },
+
+  addChainRing: (count, x, y) => {
+    if (count < 3) return; // a ring needs at least 3 chains
+    get()._pushHistory();
+    set((state) => {
+      const CHAIN_W = 32; // chain edge length (matches addChainSequence spacing)
+      const N = count;
+      const toDeg = (rad: number) => (rad * 180) / Math.PI;
+      // N chain edges + a half-width gap edge that holds the slip-stitch join.
+      const alpha = (2 * Math.PI) / (N + 0.5); // angular span of a chain edge
+      const beta = alpha / 2; // angular span of the join gap
+      const R = CHAIN_W / (2 * Math.sin(alpha / 2));
+      // Vertices v0..vN, with the join gap centered at the top of the ring.
+      const a0 = -Math.PI / 2 + beta / 2;
+      const vert = (k: number) => {
+        const a = a0 + k * alpha;
+        return { x: x + R * Math.cos(a), y: y + R * Math.sin(a) };
+      };
+
+      const chains: CanvasSymbol[] = [];
+      for (let i = 0; i < N; i++) {
+        const v0 = vert(i);
+        const v1 = vert(i + 1);
+        chains.push({
+          id: crypto.randomUUID(),
+          type: 'chain',
+          x: (v0.x + v1.x) / 2,
+          y: (v0.y + v1.y) / 2,
+          rotation: toDeg(Math.atan2(v1.y - v0.y, v1.x - v0.x)),
+          chainRole: 'starting',
+        });
+      }
+      if (!state.symbols.some((s) => s.isStart)) {
+        chains[0] = { ...chains[0], isStart: true };
+      }
+
+      // Slip stitch closing the ring, sitting in the gap between the last chain's
+      // right end (vRingEnd) and the first chain's left end (vRingStart).
+      const vRingEnd = vert(N);
+      const vRingStart = vert(0);
+      const slip: CanvasSymbol = {
+        id: crypto.randomUUID(),
+        type: 'slip_stitch',
+        x: (vRingEnd.x + vRingStart.x) / 2,
+        y: (vRingEnd.y + vRingStart.y) / 2,
+        rotation: toDeg(
+          Math.atan2(vRingStart.y - vRingEnd.y, vRingStart.x - vRingEnd.x),
+        ),
+      };
+
+      const newConnections: Connection[] = [];
+      for (let i = 0; i < N - 1; i++) {
+        newConnections.push({
+          from: { symbolId: chains[i].id, anchor: 'right' },
+          to: { symbolId: chains[i + 1].id, anchor: 'left' },
+        });
+      }
+      // Join the two ends through the slip stitch. Deleting the slip removes only
+      // these two connections (chain left/right aren't top-side, so no relayout),
+      // leaving the chains in place with the gap.
+      newConnections.push({
+        from: { symbolId: chains[N - 1].id, anchor: 'right' },
+        to: { symbolId: slip.id, anchor: 'bottom' },
+      });
+      newConnections.push({
+        from: { symbolId: slip.id, anchor: 'top' },
+        to: { symbolId: chains[0].id, anchor: 'left' },
+      });
+
+      return {
+        symbols: [...state.symbols, ...chains, slip],
         connections: [...state.connections, ...newConnections],
         dirty: true,
       };

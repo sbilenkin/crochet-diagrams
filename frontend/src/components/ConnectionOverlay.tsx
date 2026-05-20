@@ -2,13 +2,14 @@ import { useMemo } from 'react';
 import { Group, Line } from 'react-konva';
 import { useCanvasStore } from '../stores/canvasStore';
 import { CROCHET_SYMBOLS } from '../config/crochetSymbols';
+import { anchorWorldPos } from '../utils/anchors';
 import type { CanvasSymbol } from '../types/canvas';
 
 function anchorPos(symbol: CanvasSymbol, anchorName: string) {
   const def = CROCHET_SYMBOLS[symbol.type];
   const a = def?.anchors.find((x) => x.name === anchorName);
   if (!a) return null;
-  return { x: symbol.x + a.offsetX, y: symbol.y + a.offsetY };
+  return anchorWorldPos(symbol, a);
 }
 
 function ConnectionOverlay() {

@@ -11,12 +11,13 @@ function StartIndicatorOverlay() {
   const def = start ? CROCHET_SYMBOLS[start.type] : undefined;
   if (!start || !def) return null;
 
-  // Tip sits just off the stitch's top-left corner; tail trails up-and-left.
-  const tipX = start.x - def.width / 2 - 1;
+  // Tip sits just off the stitch's top-right corner; tail trails up-and-right.
+  // Right side matches crochet working direction (right-to-left / counterclockwise).
+  const tipX = start.x + def.width / 2 + 1;
   const tipY = start.y - def.height / 2 - 1;
   return (
     <Arrow
-      points={[tipX - 16, tipY - 16, tipX, tipY]}
+      points={[tipX + 16, tipY - 16, tipX, tipY]}
       pointerLength={8}
       pointerWidth={8}
       stroke={ARROW_COLOR}
