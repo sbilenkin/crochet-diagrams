@@ -30,7 +30,8 @@ function AnchorOverlay() {
   const selectedId = useCanvasStore((s) => s.selectedSymbolId);
   const dragState = useCanvasStore((s) => s.dragState);
 
-  const draggingId = dragState?.activeId ?? null;
+  // A rotation drag isn't a positional drag — don't reveal every anchor for it.
+  const draggingId = dragState && !dragState.rotating ? dragState.activeId : null;
   const magneticTarget = dragState?.magneticTarget ?? null;
   const snapTarget = dragState?.snapTarget ?? null;
   const tentativeDetaches = dragState?.tentativeDetaches ?? [];
@@ -49,8 +50,8 @@ function AnchorOverlay() {
   for (const sym of symbols) {
     const posSource =
       dragState && dragState.activeId === sym.id
-        ? { x: dragState.rootX, y: dragState.rootY }
-        : { x: sym.x, y: sym.y };
+        ? { x: dragState.rootX, y: dragState.rootY, rotation: sym.rotation }
+        : sym;
     for (const anchor of getSymbolAnchors(sym)) {
       worldPositions.set(
         `${sym.id}:${anchor.name}`,

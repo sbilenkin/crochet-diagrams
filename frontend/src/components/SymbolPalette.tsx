@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { SYMBOL_LIST } from '../config/crochetSymbols';
 import { useCanvasStore } from '../stores/canvasStore';
 import type { SymbolCategory, SymbolDef } from '../types/canvas';
-import ChainBulkAddPopover from './ChainBulkAddPopover';
+import ChainBulkAddPopover, { type ChainAddMode } from './ChainBulkAddPopover';
 
 const CATEGORY_ORDER: SymbolCategory[] = ['basic', 'structural', 'advanced'];
 const CATEGORY_LABELS: Record<SymbolCategory, string> = {
@@ -18,6 +18,7 @@ interface Props {
 function SymbolPalette({ viewportCenter }: Props) {
   const addSymbol = useCanvasStore((s) => s.addSymbol);
   const addChainSequence = useCanvasStore((s) => s.addChainSequence);
+  const addChainRing = useCanvasStore((s) => s.addChainRing);
   const [chainPopoverOpen, setChainPopoverOpen] = useState(false);
   const [lastChainCount, setLastChainCount] = useState(10);
   const chainBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -39,9 +40,10 @@ function SymbolPalette({ viewportCenter }: Props) {
     addSymbol(def.key, x, y);
   };
 
-  const handleChainSubmit = (count: number) => {
+  const handleChainSubmit = (count: number, mode: ChainAddMode) => {
     const { x, y } = viewportCenter();
-    addChainSequence(count, x, y);
+    if (mode === 'ring') addChainRing(count, x, y);
+    else addChainSequence(count, x, y);
     setLastChainCount(count);
     setChainPopoverOpen(false);
   };

@@ -47,12 +47,15 @@ export function getSymbolAnchors(symbol: CanvasSymbol): AnchorDef[] {
 }
 
 export function anchorWorldPos(
-  symbol: Pick<CanvasSymbol, 'x' | 'y'>,
+  symbol: Pick<CanvasSymbol, 'x' | 'y'> & { rotation?: number },
   anchor: AnchorDef,
 ): { x: number; y: number } {
+  const rad = ((symbol.rotation ?? 0) * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
   return {
-    x: symbol.x + anchor.offsetX,
-    y: symbol.y + anchor.offsetY,
+    x: symbol.x + anchor.offsetX * cos - anchor.offsetY * sin,
+    y: symbol.y + anchor.offsetX * sin + anchor.offsetY * cos,
   };
 }
 
@@ -119,9 +122,15 @@ export function findSnapMatch(
   connections: Connection[],
   excludeIds: Set<string>,
 ): SnapMatch | null {
+  const dRad = ((draggedSymbol.rotation ?? 0) * Math.PI) / 180;
+  const dCos = Math.cos(dRad);
+  const dSin = Math.sin(dRad);
   const draggedAnchors = getSymbolAnchors(draggedSymbol).map((a) => ({
     anchor: a,
-    world: { x: draggedX + a.offsetX, y: draggedY + a.offsetY },
+    world: {
+      x: draggedX + a.offsetX * dCos - a.offsetY * dSin,
+      y: draggedY + a.offsetX * dSin + a.offsetY * dCos,
+    },
   }));
 
   let best: SnapMatch | null = null;
@@ -180,9 +189,11 @@ export interface FanPose {
 
 /**
  * Compute radial fan positions + rotations for children connected to a single
- * anchor on a parent symbol. 0° points straight up; positive angles fan to the
+ * anchor on a parent symbol. The fan is centered on the parent's own rotation
+ * (0 fan offset points "up" in the parent's frame); positive angles fan to the
  * right. Each child is positioned so its connecting anchor lands exactly on the
- * parent anchor's world position after the child is rotated by its fan angle.
+ * parent anchor's world position after the child is rotated by its fan angle, so
+ * children inherit the parent's orientation.
  */
 export function computeFanLayout(args: {
   anchorSymbol: CanvasSymbol;
@@ -202,6 +213,9 @@ export function computeFanLayout(args: {
   const N = children.length;
   if (N === 0) return result;
 
+  // Fan relative to the parent's own rotation so children built on a rotated
+  // stitch inherit its orientation (0 fan offset points "up" in the parent's frame).
+  const base = anchorSymbol.rotation ?? 0;
   const totalArc = Math.min(30 * (N - 1), 120);
   const startAngle = -totalArc / 2;
   const angleStep = N > 1 ? totalArc / (N - 1) : 0;
@@ -215,7 +229,7 @@ export function computeFanLayout(args: {
     );
     if (!childAnchor) continue;
 
-    const angleDeg = startAngle + i * angleStep;
+    const angleDeg = base + startAngle + i * angleStep;
     const rad = (angleDeg * Math.PI) / 180;
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);

@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 
+export type ChainAddMode = 'row' | 'ring';
+
 interface Props {
   defaultCount: number;
   anchorRef: RefObject<HTMLElement | null>;
-  onSubmit: (count: number) => void;
+  onSubmit: (count: number, mode: ChainAddMode) => void;
   onClose: () => void;
 }
 
 const MIN_COUNT = 1;
+const MIN_RING = 3;
 const MAX_COUNT = 100;
 
 function ChainBulkAddPopover({ defaultCount, anchorRef, onSubmit, onClose }: Props) {
   const [value, setValue] = useState(String(defaultCount));
+  const [mode, setMode] = useState<ChainAddMode>('row');
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -34,12 +38,13 @@ function ChainBulkAddPopover({ defaultCount, anchorRef, onSubmit, onClose }: Pro
   }, [onClose]);
 
   const parsed = Number.parseInt(value, 10);
+  const minCount = mode === 'ring' ? MIN_RING : MIN_COUNT;
   const valid =
-    Number.isFinite(parsed) && parsed >= MIN_COUNT && parsed <= MAX_COUNT;
+    Number.isFinite(parsed) && parsed >= minCount && parsed <= MAX_COUNT;
 
   const submit = () => {
     if (!valid) return;
-    onSubmit(parsed);
+    onSubmit(parsed, mode);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -67,8 +72,24 @@ function ChainBulkAddPopover({ defaultCount, anchorRef, onSubmit, onClose }: Pro
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
+      <div className="btn-group btn-group-sm w-100 mb-2" role="group">
+        <button
+          type="button"
+          className={`btn ${mode === 'row' ? 'btn-primary' : 'btn-outline-secondary'}`}
+          onClick={() => setMode('row')}
+        >
+          Row
+        </button>
+        <button
+          type="button"
+          className={`btn ${mode === 'ring' ? 'btn-primary' : 'btn-outline-secondary'}`}
+          onClick={() => setMode('ring')}
+        >
+          Ring
+        </button>
+      </div>
       <label className="form-label small mb-1" htmlFor="chain-count-input">
-        Number of chains
+        {mode === 'ring' ? 'Chains in ring (min 3)' : 'Number of chains'}
       </label>
       <div className="d-flex gap-2 align-items-center">
         <input
@@ -76,7 +97,7 @@ function ChainBulkAddPopover({ defaultCount, anchorRef, onSubmit, onClose }: Pro
           id="chain-count-input"
           type="number"
           className="form-control form-control-sm"
-          min={MIN_COUNT}
+          min={minCount}
           max={MAX_COUNT}
           value={value}
           onChange={(e) => setValue(e.target.value)}

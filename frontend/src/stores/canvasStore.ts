@@ -7,6 +7,7 @@ import type {
 } from '../types/canvas';
 import { maxConnectionsFor, type AnchorType } from '../config/anchorTypes';
 import {
+  getConnectedComponent,
   getSymbolAnchors,
   isTopSideAnchorType,
   relayoutFromMany,
@@ -33,6 +34,8 @@ interface DragState {
   magneticTarget: { dragged: AnchorRef; target: AnchorRef } | null;
   snapTarget: { dragged: AnchorRef; target: AnchorRef } | null;
   tentativeDetaches: TentativeDetach[];
+  // Set while a rotation-handle drag is in progress (not a positional drag).
+  rotating?: boolean;
 }
 
 interface Snapshot {
@@ -59,10 +62,12 @@ interface CanvasState {
 
   addSymbol: (type: string, x: number, y: number) => void;
   addChainSequence: (count: number, x: number, y: number) => void;
+  addChainRing: (count: number, x: number, y: number) => void;
   moveSymbol: (id: string, x: number, y: number) => void;
   moveSymbols: (updates: SymbolMove[]) => void;
   selectSymbol: (id: string | null) => void;
   toggleStart: (id: string) => void;
+  rotateSymbolBy: (id: string, deltaDeg: number) => void;
   deleteSymbol: (id: string) => void;
   setViewport: (offsetX: number, offsetY: number, zoom: number) => void;
   clearCanvas: () => void;
@@ -208,6 +213,82 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     });
   },
 
+  addChainRing: (count, x, y) => {
+    if (count < 3) return; // a ring needs at least 3 chains
+    get()._pushHistory();
+    set((state) => {
+      const CHAIN_W = 32; // chain edge length (matches addChainSequence spacing)
+      const N = count;
+      const toDeg = (rad: number) => (rad * 180) / Math.PI;
+      // N chain edges + a half-width gap edge that holds the slip-stitch join.
+      const alpha = (2 * Math.PI) / (N + 0.5); // angular span of a chain edge
+      const beta = alpha / 2; // angular span of the join gap
+      const R = CHAIN_W / (2 * Math.sin(alpha / 2));
+      // Vertices v0..vN, with the join gap centered at the top of the ring.
+      const a0 = -Math.PI / 2 + beta / 2;
+      const vert = (k: number) => {
+        const a = a0 + k * alpha;
+        return { x: x + R * Math.cos(a), y: y + R * Math.sin(a) };
+      };
+
+      const chains: CanvasSymbol[] = [];
+      for (let i = 0; i < N; i++) {
+        const v0 = vert(i);
+        const v1 = vert(i + 1);
+        chains.push({
+          id: crypto.randomUUID(),
+          type: 'chain',
+          x: (v0.x + v1.x) / 2,
+          y: (v0.y + v1.y) / 2,
+          rotation: toDeg(Math.atan2(v1.y - v0.y, v1.x - v0.x)),
+          chainRole: 'starting',
+        });
+      }
+      if (!state.symbols.some((s) => s.isStart)) {
+        chains[0] = { ...chains[0], isStart: true };
+      }
+
+      // Slip stitch closing the ring, sitting in the gap between the last chain's
+      // right end (vRingEnd) and the first chain's left end (vRingStart).
+      const vRingEnd = vert(N);
+      const vRingStart = vert(0);
+      const slip: CanvasSymbol = {
+        id: crypto.randomUUID(),
+        type: 'slip_stitch',
+        x: (vRingEnd.x + vRingStart.x) / 2,
+        y: (vRingEnd.y + vRingStart.y) / 2,
+        rotation: toDeg(
+          Math.atan2(vRingStart.y - vRingEnd.y, vRingStart.x - vRingEnd.x),
+        ),
+      };
+
+      const newConnections: Connection[] = [];
+      for (let i = 0; i < N - 1; i++) {
+        newConnections.push({
+          from: { symbolId: chains[i].id, anchor: 'right' },
+          to: { symbolId: chains[i + 1].id, anchor: 'left' },
+        });
+      }
+      // Join the two ends through the slip stitch. Deleting the slip removes only
+      // these two connections (chain left/right aren't top-side, so no relayout),
+      // leaving the chains in place with the gap.
+      newConnections.push({
+        from: { symbolId: chains[N - 1].id, anchor: 'right' },
+        to: { symbolId: slip.id, anchor: 'bottom' },
+      });
+      newConnections.push({
+        from: { symbolId: slip.id, anchor: 'top' },
+        to: { symbolId: chains[0].id, anchor: 'left' },
+      });
+
+      return {
+        symbols: [...state.symbols, ...chains, slip],
+        connections: [...state.connections, ...newConnections],
+        dirty: true,
+      };
+    });
+  },
+
   moveSymbol: (id, x, y) => {
     get()._pushHistory();
     set((state) => ({
@@ -249,6 +330,37 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       }),
       dirty: true,
     }));
+  },
+
+  // Rigidly rotate the whole connected component of `id` by deltaDeg, pivoting
+  // around the grabbed stitch's center. _pushHistory no-ops inside a batch, so
+  // this serves both discrete keyboard presses and a batched handle drag.
+  rotateSymbolBy: (id, deltaDeg) => {
+    get()._pushHistory();
+    set((state) => {
+      const pivot = state.symbols.find((s) => s.id === id);
+      if (!pivot) return {};
+      const comp = getConnectedComponent(id, state.connections);
+      const rad = (deltaDeg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const px = pivot.x;
+      const py = pivot.y;
+      return {
+        symbols: state.symbols.map((s) => {
+          if (!comp.has(s.id)) return s;
+          const dx = s.x - px;
+          const dy = s.y - py;
+          return {
+            ...s,
+            x: px + dx * cos - dy * sin,
+            y: py + dx * sin + dy * cos,
+            rotation: (s.rotation ?? 0) + deltaDeg,
+          };
+        }),
+        dirty: true,
+      };
+    });
   },
 
   deleteSymbol: (id) => {
@@ -316,7 +428,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       }
 
       const newConnections = [...filtered, { from: a, to: b }];
-      const moves = relayoutFromMany([a, b], state.symbols, newConnections);
+      // Only relayout from the parent (top-side) end of the connection. Relaying
+      // from a base-side anchor would treat the parent as a child and clobber its
+      // rotation (e.g. reset a rotated chain to 0 when an sc is attached to it).
+      const startAnchors = [
+        { ref: a, type: typeA },
+        { ref: b, type: typeB },
+      ]
+        .filter((e) => e.type != null && isTopSideAnchorType(e.type))
+        .map((e) => e.ref);
+      const moves = relayoutFromMany(startAnchors, state.symbols, newConnections);
 
       return {
         connections: newConnections,
@@ -345,25 +466,25 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         (c) => !connectionTouches(c, ref),
       );
 
-      const workingSymbols = state.symbols.map((s) =>
-        severedIds.has(s.id) ? { ...s, rotation: 0 } : s,
-      );
-
+      // Keep rotations as-is: a detached stitch retains its current angle (it's now
+      // standalone and freely rotatable). The old reset targeted the *severed other
+      // end* — which when detaching a child is its parent — wrongly snapping e.g. a
+      // rotated chain back to 0°.
       const startAnchors: AnchorRef[] = [ref];
       for (const id of severedIds) {
-        const sym = workingSymbols.find((s) => s.id === id);
+        const sym = state.symbols.find((s) => s.id === id);
         if (sym) startAnchors.push(...topSideRefs(sym));
       }
 
       const moves = relayoutFromMany(
         startAnchors,
-        workingSymbols,
+        state.symbols,
         newConnections,
       );
 
       return {
         connections: newConnections,
-        symbols: applyMoves(workingSymbols, moves),
+        symbols: applyMoves(state.symbols, moves),
         dirty: true,
       };
     });
