@@ -62,6 +62,7 @@ interface CanvasState {
   moveSymbol: (id: string, x: number, y: number) => void;
   moveSymbols: (updates: SymbolMove[]) => void;
   selectSymbol: (id: string | null) => void;
+  toggleStart: (id: string) => void;
   deleteSymbol: (id: string) => void;
   setViewport: (offsetX: number, offsetY: number, zoom: number) => void;
   clearCanvas: () => void;
@@ -194,6 +195,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           });
         }
       }
+      // Auto-assign the diagram start to the first chain, but only if no start
+      // exists yet — adding more chains later must not steal an existing start.
+      if (!state.symbols.some((s) => s.isStart) && newSymbols.length > 0) {
+        newSymbols[0] = { ...newSymbols[0], isStart: true };
+      }
       return {
         symbols: [...state.symbols, ...newSymbols],
         connections: [...state.connections, ...newConnections],
@@ -229,6 +235,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   selectSymbol: (id) => set({ selectedSymbolId: id }),
+
+  toggleStart: (id) => {
+    const cur = get().symbols.find((s) => s.id === id);
+    if (!cur) return;
+    const turningOn = !cur.isStart; // already start → toggle off; else set as start
+    get()._pushHistory();
+    set((state) => ({
+      symbols: state.symbols.map((sym) => {
+        if (sym.id === id) return { ...sym, isStart: turningOn };
+        // When setting a new start, clear any other current start (one per diagram).
+        return turningOn && sym.isStart ? { ...sym, isStart: false } : sym;
+      }),
+      dirty: true,
+    }));
+  },
 
   deleteSymbol: (id) => {
     get()._pushHistory();

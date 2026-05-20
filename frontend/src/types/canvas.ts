@@ -36,6 +36,8 @@ export interface CanvasSymbol {
   /** Chains only. Foundation chains are 'starting'; chains added later are 'regular'.
    *  Undefined (legacy data / non-chain symbols) is treated as 'starting'. */
   chainRole?: 'starting' | 'regular';
+  /** True on the single stitch flagged as the diagram's starting point. */
+  isStart?: boolean;
 }
 
 export interface Connection {
