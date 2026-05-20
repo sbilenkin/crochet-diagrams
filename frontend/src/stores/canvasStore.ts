@@ -7,6 +7,7 @@ import type {
 } from '../types/canvas';
 import { maxConnectionsFor, type AnchorType } from '../config/anchorTypes';
 import {
+  getConnectedComponent,
   getSymbolAnchors,
   isTopSideAnchorType,
   relayoutFromMany,
@@ -33,6 +34,8 @@ interface DragState {
   magneticTarget: { dragged: AnchorRef; target: AnchorRef } | null;
   snapTarget: { dragged: AnchorRef; target: AnchorRef } | null;
   tentativeDetaches: TentativeDetach[];
+  // Set while a rotation-handle drag is in progress (not a positional drag).
+  rotating?: boolean;
 }
 
 interface Snapshot {
@@ -63,6 +66,7 @@ interface CanvasState {
   moveSymbols: (updates: SymbolMove[]) => void;
   selectSymbol: (id: string | null) => void;
   toggleStart: (id: string) => void;
+  rotateSymbolBy: (id: string, deltaDeg: number) => void;
   deleteSymbol: (id: string) => void;
   setViewport: (offsetX: number, offsetY: number, zoom: number) => void;
   clearCanvas: () => void;
@@ -251,6 +255,37 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }));
   },
 
+  // Rigidly rotate the whole connected component of `id` by deltaDeg, pivoting
+  // around the grabbed stitch's center. _pushHistory no-ops inside a batch, so
+  // this serves both discrete keyboard presses and a batched handle drag.
+  rotateSymbolBy: (id, deltaDeg) => {
+    get()._pushHistory();
+    set((state) => {
+      const pivot = state.symbols.find((s) => s.id === id);
+      if (!pivot) return {};
+      const comp = getConnectedComponent(id, state.connections);
+      const rad = (deltaDeg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const px = pivot.x;
+      const py = pivot.y;
+      return {
+        symbols: state.symbols.map((s) => {
+          if (!comp.has(s.id)) return s;
+          const dx = s.x - px;
+          const dy = s.y - py;
+          return {
+            ...s,
+            x: px + dx * cos - dy * sin,
+            y: py + dx * sin + dy * cos,
+            rotation: (s.rotation ?? 0) + deltaDeg,
+          };
+        }),
+        dirty: true,
+      };
+    });
+  },
+
   deleteSymbol: (id) => {
     get()._pushHistory();
     set((state) => {
@@ -316,7 +351,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       }
 
       const newConnections = [...filtered, { from: a, to: b }];
-      const moves = relayoutFromMany([a, b], state.symbols, newConnections);
+      // Only relayout from the parent (top-side) end of the connection. Relaying
+      // from a base-side anchor would treat the parent as a child and clobber its
+      // rotation (e.g. reset a rotated chain to 0 when an sc is attached to it).
+      const startAnchors = [
+        { ref: a, type: typeA },
+        { ref: b, type: typeB },
+      ]
+        .filter((e) => e.type != null && isTopSideAnchorType(e.type))
+        .map((e) => e.ref);
+      const moves = relayoutFromMany(startAnchors, state.symbols, newConnections);
 
       return {
         connections: newConnections,
@@ -345,25 +389,25 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         (c) => !connectionTouches(c, ref),
       );
 
-      const workingSymbols = state.symbols.map((s) =>
-        severedIds.has(s.id) ? { ...s, rotation: 0 } : s,
-      );
-
+      // Keep rotations as-is: a detached stitch retains its current angle (it's now
+      // standalone and freely rotatable). The old reset targeted the *severed other
+      // end* — which when detaching a child is its parent — wrongly snapping e.g. a
+      // rotated chain back to 0°.
       const startAnchors: AnchorRef[] = [ref];
       for (const id of severedIds) {
-        const sym = workingSymbols.find((s) => s.id === id);
+        const sym = state.symbols.find((s) => s.id === id);
         if (sym) startAnchors.push(...topSideRefs(sym));
       }
 
       const moves = relayoutFromMany(
         startAnchors,
-        workingSymbols,
+        state.symbols,
         newConnections,
       );
 
       return {
         connections: newConnections,
-        symbols: applyMoves(workingSymbols, moves),
+        symbols: applyMoves(state.symbols, moves),
         dirty: true,
       };
     });

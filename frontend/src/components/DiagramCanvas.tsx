@@ -6,6 +6,7 @@ import SymbolNode from './SymbolNode';
 import AnchorOverlay from './AnchorOverlay';
 import ConnectionOverlay from './ConnectionOverlay';
 import StartIndicatorOverlay from './StartIndicatorOverlay';
+import RotationHandleOverlay from './RotationHandleOverlay';
 
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 4;
@@ -45,6 +46,7 @@ const DiagramCanvas = forwardRef<DiagramCanvasHandle>((_props, ref) => {
   const zoom = useCanvasStore((s) => s.zoom);
   const selectSymbol = useCanvasStore((s) => s.selectSymbol);
   const toggleStart = useCanvasStore((s) => s.toggleStart);
+  const rotateSymbolBy = useCanvasStore((s) => s.rotateSymbolBy);
   const deleteSymbol = useCanvasStore((s) => s.deleteSymbol);
   const setViewport = useCanvasStore((s) => s.setViewport);
   const undo = useCanvasStore((s) => s.undo);
@@ -75,11 +77,21 @@ const DiagramCanvas = forwardRef<DiagramCanvasHandle>((_props, ref) => {
       if ((e.key === 's' || e.key === 'S') && !mod && selectedSymbolId) {
         e.preventDefault();
         toggleStart(selectedSymbolId);
+        return;
+      }
+      if (
+        (e.code === 'BracketLeft' || e.code === 'BracketRight') &&
+        !mod &&
+        selectedSymbolId
+      ) {
+        e.preventDefault();
+        const dir = e.code === 'BracketRight' ? 1 : -1;
+        rotateSymbolBy(selectedSymbolId, dir * (e.shiftKey ? 1 : 15));
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedSymbolId, deleteSymbol, toggleStart, undo, redo]);
+  }, [selectedSymbolId, deleteSymbol, toggleStart, rotateSymbolBy, undo, redo]);
 
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
@@ -147,6 +159,7 @@ const DiagramCanvas = forwardRef<DiagramCanvasHandle>((_props, ref) => {
           ))}
           <StartIndicatorOverlay />
           <AnchorOverlay />
+          <RotationHandleOverlay />
         </Layer>
       </Stage>
     </div>
