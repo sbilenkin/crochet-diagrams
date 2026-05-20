@@ -339,6 +339,19 @@ function SymbolNode({ symbol, selected }: Props) {
         x: pos.x,
         y: pos.y,
       }));
+      // Record each final pose as visually-settled BEFORE the store update so the
+      // prop-watching effect doesn't re-animate this committed move. Without this,
+      // a plain drag of an unconnected symbol (no snap, shouldAnimate=false) would
+      // teleport back to its origin and tween forward to the drop point.
+      finalPositions.forEach((pos, id) => {
+        const node = id === symbol.id ? e.target : konvaRegistry.get(id);
+        if (!node) return;
+        lastSettledPoseRegistry.set(id, {
+          x: pos.x,
+          y: pos.y,
+          rotation: node.rotation(),
+        });
+      });
       store.moveSymbols(updates);
       // Keep Konva node in sync with committed position.
       e.target.position({ x: finalRootX, y: finalRootY });

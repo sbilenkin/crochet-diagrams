@@ -173,7 +173,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (count < 1) return;
     get()._pushHistory();
     set((state) => {
-      const CHAIN_W = 40;
+      const CHAIN_W = 32;
       const startX = x - ((count - 1) * CHAIN_W) / 2;
       const newSymbols: CanvasSymbol[] = [];
       const newConnections: Connection[] = [];
@@ -185,6 +185,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           x: startX + i * CHAIN_W,
           y,
           rotation: 0,
+          chainRole: 'starting',
         });
         if (i > 0) {
           newConnections.push({

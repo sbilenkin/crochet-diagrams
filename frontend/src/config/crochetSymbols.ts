@@ -32,9 +32,9 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
     height: 20,
     category: 'basic',
     anchors: [
-      { name: 'left', type: AnchorType.CHAIN_LEFT, offsetX: -20, offsetY: 0, direction: 'left' },
-      { name: 'right', type: AnchorType.CHAIN_RIGHT, offsetX: 20, offsetY: 0, direction: 'right' },
-      { name: 'top', type: AnchorType.CHAIN_TOP, offsetX: 0, offsetY: -10, direction: 'up' },
+      { name: 'left', type: AnchorType.CHAIN_LEFT, offsetX: -16, offsetY: 0, direction: 'left' },
+      { name: 'right', type: AnchorType.CHAIN_RIGHT, offsetX: 16, offsetY: 0, direction: 'right' },
+      { name: 'top', type: AnchorType.CHAIN_TOP, offsetX: 0, offsetY: -7, direction: 'up' },
       { name: 'space', type: AnchorType.SPACE, offsetX: 0, offsetY: -18, direction: 'up' },
     ],
   },
@@ -58,8 +58,8 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
     height: 30,
     category: 'basic',
     anchors: [
-      { name: 'bottom', type: AnchorType.STITCH_BASE, offsetX: 0, offsetY: 15, direction: 'down' },
-      { name: 'top', type: AnchorType.STITCH_TOP, offsetX: 0, offsetY: -15, direction: 'up' },
+      { name: 'bottom', type: AnchorType.STITCH_BASE, offsetX: 0, offsetY: 8, direction: 'down' },
+      { name: 'top', type: AnchorType.STITCH_TOP, offsetX: 0, offsetY: -8, direction: 'up' },
     ],
   },
   half_double: {
