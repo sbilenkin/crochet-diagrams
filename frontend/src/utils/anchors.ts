@@ -25,9 +25,25 @@ export interface WorldAnchor {
   y: number;
 }
 
+export function chainRole(symbol: CanvasSymbol): 'starting' | 'regular' {
+  return symbol.chainRole ?? 'starting'; // legacy/undefined → starting
+}
+
+function isAnchorVisibleForSymbol(
+  symbol: CanvasSymbol,
+  anchor: AnchorDef,
+): boolean {
+  // Chain-space (SPACE) is offered only by regular chains; starting chains never
+  // offer it. This intentionally overrides SIMPLE_CONNECTIONS_MODE for regular chains.
+  if (symbol.type === 'chain' && anchor.type === AnchorType.SPACE) {
+    return chainRole(symbol) === 'regular';
+  }
+  return isAnchorTypeVisible(anchor.type);
+}
+
 export function getSymbolAnchors(symbol: CanvasSymbol): AnchorDef[] {
   const all = CROCHET_SYMBOLS[symbol.type]?.anchors ?? [];
-  return all.filter((a) => isAnchorTypeVisible(a.type));
+  return all.filter((a) => isAnchorVisibleForSymbol(symbol, a));
 }
 
 export function anchorWorldPos(

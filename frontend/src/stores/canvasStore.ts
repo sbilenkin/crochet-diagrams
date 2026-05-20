@@ -62,6 +62,7 @@ interface CanvasState {
   moveSymbol: (id: string, x: number, y: number) => void;
   moveSymbols: (updates: SymbolMove[]) => void;
   selectSymbol: (id: string | null) => void;
+  toggleStart: (id: string) => void;
   deleteSymbol: (id: string) => void;
   setViewport: (offsetX: number, offsetY: number, zoom: number) => void;
   clearCanvas: () => void;
@@ -173,7 +174,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (count < 1) return;
     get()._pushHistory();
     set((state) => {
-      const CHAIN_W = 40;
+      const CHAIN_W = 32;
       const startX = x - ((count - 1) * CHAIN_W) / 2;
       const newSymbols: CanvasSymbol[] = [];
       const newConnections: Connection[] = [];
@@ -185,6 +186,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           x: startX + i * CHAIN_W,
           y,
           rotation: 0,
+          chainRole: 'starting',
         });
         if (i > 0) {
           newConnections.push({
@@ -192,6 +194,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             to: { symbolId: id, anchor: 'left' },
           });
         }
+      }
+      // Auto-assign the diagram start to the first chain, but only if no start
+      // exists yet — adding more chains later must not steal an existing start.
+      if (!state.symbols.some((s) => s.isStart) && newSymbols.length > 0) {
+        newSymbols[0] = { ...newSymbols[0], isStart: true };
       }
       return {
         symbols: [...state.symbols, ...newSymbols],
@@ -228,6 +235,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   selectSymbol: (id) => set({ selectedSymbolId: id }),
+
+  toggleStart: (id) => {
+    const cur = get().symbols.find((s) => s.id === id);
+    if (!cur) return;
+    const turningOn = !cur.isStart; // already start → toggle off; else set as start
+    get()._pushHistory();
+    set((state) => ({
+      symbols: state.symbols.map((sym) => {
+        if (sym.id === id) return { ...sym, isStart: turningOn };
+        // When setting a new start, clear any other current start (one per diagram).
+        return turningOn && sym.isStart ? { ...sym, isStart: false } : sym;
+      }),
+      dirty: true,
+    }));
+  },
 
   deleteSymbol: (id) => {
     get()._pushHistory();
