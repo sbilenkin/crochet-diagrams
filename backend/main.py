@@ -32,7 +32,7 @@ def health_check(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/login")
+@app.post("/api/login")
 def login(
     username: str = Form(...),
     password: str = Form(...),
@@ -51,7 +51,7 @@ def login(
     else:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-@app.post("/signup")
+@app.post("/api/signup")
 def signup(
     username: str = Form(...),
     password: str = Form(...),

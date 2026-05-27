@@ -14,7 +14,7 @@ function Signup() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const response = await fetch('http://localhost:8000/signup', {
+    const response = await fetch('/api/signup', {
       method: 'POST',
       body: formData,
     });
