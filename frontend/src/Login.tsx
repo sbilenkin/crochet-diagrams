@@ -22,20 +22,27 @@ function Login({ onLogin }: LoginProps) {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const response = await fetch('http://localhost:8000/login', {
-      method: 'POST',
-      body: formData,
-    });
-    const data: LoginResponse = await response.json();
-    if (response.ok) {
-      setAccessToken(data.access_token);
-      sessionStorage.setItem('loggedIn', 'true');
-      sessionStorage.setItem('username', data.user.username);
-      sessionStorage.setItem('userId', String(data.user.user_id));
-      if (onLogin) onLogin();
-      navigate('/projects');
-    } else {
-      setMessage(data.detail || 'Login failed');
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        body: formData,
+      });
+      const data: LoginResponse = await response.json();
+      if (response.ok) {
+        setAccessToken(data.access_token);
+        sessionStorage.setItem('loggedIn', 'true');
+        sessionStorage.setItem('username', data.user.username);
+        sessionStorage.setItem('userId', String(data.user.user_id));
+        if (onLogin) onLogin();
+        navigate('/projects');
+      } else {
+        setMessage(data.detail || 'Login failed');
+      }
+    } catch {
+      // fetch threw before getting a response (connection refused, DNS, offline,
+      // backend container not up yet, etc.). Surface it instead of silently
+      // swallowing the rejection.
+      setMessage("Couldn't reach the server — is the backend running?");
     }
   };
 
