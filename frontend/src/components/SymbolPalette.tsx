@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { SYMBOL_LIST } from '../config/crochetSymbols';
 import { useCanvasStore } from '../stores/canvasStore';
+import { useCustomSymbolStore } from '../stores/customSymbolStore';
+import { useSymbolEditorStore } from '../stores/symbolEditorStore';
 import type { SymbolCategory, SymbolDef } from '../types/canvas';
 import ChainBulkAddPopover, { type ChainAddMode } from './ChainBulkAddPopover';
 
@@ -19,6 +21,8 @@ function SymbolPalette({ viewportCenter }: Props) {
   const addSymbol = useCanvasStore((s) => s.addSymbol);
   const addChainSequence = useCanvasStore((s) => s.addChainSequence);
   const addChainRing = useCanvasStore((s) => s.addChainRing);
+  const customSymbols = useCustomSymbolStore((s) => s.symbols);
+  const openNew = useSymbolEditorStore((s) => s.openNew);
   const [chainPopoverOpen, setChainPopoverOpen] = useState(false);
   const [lastChainCount, setLastChainCount] = useState(10);
   const chainBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -84,6 +88,40 @@ function SymbolPalette({ viewportCenter }: Props) {
           </div>
         </div>
       ))}
+      {/* Custom symbols section */}
+      <div className="mb-3">
+        <div className="text-muted small text-uppercase mb-2">Custom</div>
+        <div className="d-flex flex-column gap-1">
+          {customSymbols.map((sym) => (
+            <div
+              key={sym.id}
+              className="d-flex align-items-center gap-2 px-2 py-1 rounded"
+              style={{ fontSize: '0.85rem' }}
+            >
+              <svg
+                viewBox="-50 -50 100 100"
+                width={24}
+                height={24}
+                style={{ flexShrink: 0, border: '1px solid #dee2e6', background: '#fff' }}
+              >
+                {sym.paths.map((d, i) => (
+                  <path key={i} d={d} stroke="black" strokeWidth={2} fill="none" />
+                ))}
+              </svg>
+              <span className="text-truncate">{sym.name}</span>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 text-start w-100"
+            onClick={openNew}
+          >
+            <span style={{ fontSize: '1rem', lineHeight: 1 }}>+</span>
+            <span>New symbol</span>
+          </button>
+        </div>
+      </div>
+
       {chainPopoverOpen && (
         <ChainBulkAddPopover
           defaultCount={lastChainCount}

@@ -45,9 +45,19 @@ export interface Connection {
   to: { symbolId: string; anchor: string };
 }
 
+export interface CustomSymbolDef {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  paths: string[];
+  anchors: AnchorDef[];
+}
+
 export interface SerializedCanvas {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   symbols: CanvasSymbol[];
   connections: Connection[];
   viewport?: { offsetX: number; offsetY: number; zoom: number };
+  customSymbols?: CustomSymbolDef[];
 }

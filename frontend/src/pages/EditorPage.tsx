@@ -3,7 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import SymbolPalette from '../components/SymbolPalette';
 import DiagramCanvas, { type DiagramCanvasHandle } from '../components/DiagramCanvas';
 import SaveIndicator from '../components/SaveIndicator';
+import { SymbolEditorPanel } from '../components/SymbolEditor';
 import { useCanvasStore } from '../stores/canvasStore';
+import { useCustomSymbolStore } from '../stores/customSymbolStore';
+import { useSymbolEditorStore } from '../stores/symbolEditorStore';
 import { getProject, saveCanvas, updateProject } from '../api/projects';
 import { ApiError } from '../api/client';
 import { exportPDF, exportPNG, generateThumbnail } from '../utils/export';
@@ -22,6 +25,9 @@ function EditorPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+
+  const editorOpen = useSymbolEditorStore((s) => s.open);
+  const loadCustomSymbols = useCustomSymbolStore((s) => s.load);
 
   const dirty = useCanvasStore((s) => s.dirty);
   const hasSymbols = useCanvasStore((s) => s.symbols.length > 0);
@@ -47,6 +53,10 @@ function EditorPage() {
       y: (h / 2 - store.offsetY) / store.zoom,
     };
   }, []);
+
+  useEffect(() => {
+    void loadCustomSymbols();
+  }, [loadCustomSymbols]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -225,6 +235,7 @@ function EditorPage() {
             <DiagramCanvas ref={canvasRef} />
           )}
         </div>
+        {editorOpen && <SymbolEditorPanel />}
       </div>
     </div>
   );

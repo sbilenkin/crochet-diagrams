@@ -3,9 +3,12 @@ import type {
   AnchorRef,
   CanvasSymbol,
   Connection,
+  CustomSymbolDef,
   SerializedCanvas,
+  SymbolDef,
 } from '../types/canvas';
 import { maxConnectionsFor, type AnchorType } from '../config/anchorTypes';
+import { CROCHET_SYMBOLS } from '../config/crochetSymbols';
 import {
   getConnectedComponent,
   getSymbolAnchors,
@@ -48,6 +51,7 @@ const HISTORY_CAP = 50;
 interface CanvasState {
   symbols: CanvasSymbol[];
   connections: Connection[];
+  customSymbols: CustomSymbolDef[];
   offsetX: number;
   offsetY: number;
   zoom: number;
@@ -59,6 +63,14 @@ interface CanvasState {
   future: Snapshot[];
   pendingSnapshot: Snapshot | null;
   batching: boolean;
+
+  addCustomSymbol: (symbol: CustomSymbolDef) => void;
+  updateCustomSymbol: (
+    id: string,
+    updates: Partial<Pick<CustomSymbolDef, 'name' | 'paths' | 'anchors' | 'width' | 'height'>>,
+  ) => void;
+  deleteCustomSymbol: (id: string) => void;
+  getSymbolDef: (type: string) => SymbolDef | CustomSymbolDef | undefined;
 
   addSymbol: (type: string, x: number, y: number) => void;
   addChainSequence: (count: number, x: number, y: number) => void;
@@ -132,6 +144,7 @@ function topSideRefs(symbol: CanvasSymbol): AnchorRef[] {
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   symbols: [],
   connections: [],
+  customSymbols: [],
   offsetX: 0,
   offsetY: 0,
   zoom: 1,
@@ -154,6 +167,59 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           : [...state.past, snap];
       return { past, future: [] };
     }),
+
+  addCustomSymbol: (symbol) => {
+    set((state) => ({
+      customSymbols: [...state.customSymbols, symbol],
+      dirty: true,
+    }));
+  },
+
+  updateCustomSymbol: (id, updates) => {
+    set((state) => ({
+      customSymbols: state.customSymbols.map((s) =>
+        s.id === id ? { ...s, ...updates } : s,
+      ),
+      dirty: true,
+    }));
+  },
+
+  deleteCustomSymbol: (id) => {
+    get()._pushHistory();
+    set((state) => {
+      const typeKey = `custom:${id}`;
+      const removedIds = new Set(
+        state.symbols.filter((s) => s.type === typeKey).map((s) => s.id),
+      );
+      const newCustomSymbols = state.customSymbols.filter((s) => s.id !== id);
+      if (removedIds.size === 0) {
+        return { customSymbols: newCustomSymbols };
+      }
+      return {
+        customSymbols: newCustomSymbols,
+        symbols: state.symbols.filter((s) => !removedIds.has(s.id)),
+        connections: state.connections.filter(
+          (c) =>
+            !removedIds.has(c.from.symbolId) && !removedIds.has(c.to.symbolId),
+        ),
+        selectedSymbolId:
+          state.selectedSymbolId && removedIds.has(state.selectedSymbolId)
+            ? null
+            : state.selectedSymbolId,
+        dirty: true,
+      };
+    });
+  },
+
+  getSymbolDef: (type) => {
+    const builtIn = CROCHET_SYMBOLS[type];
+    if (builtIn) return builtIn;
+    if (type.startsWith('custom:')) {
+      const id = type.slice('custom:'.length);
+      return get().customSymbols.find((s) => s.id === id);
+    }
+    return undefined;
+  },
 
   addSymbol: (type, x, y) => {
     get()._pushHistory();
@@ -605,24 +671,25 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   serialize: () => {
-    const { symbols, connections, offsetX, offsetY, zoom } = get();
+    const { symbols, connections, customSymbols, offsetX, offsetY, zoom } =
+      get();
     return {
-      version: 2,
+      version: 3,
       symbols,
       connections,
+      customSymbols,
       viewport: { offsetX, offsetY, zoom },
     };
   },
 
   loadFromJSON: (data) => {
-    if (data.version !== 1 && data.version !== 2) {
+    if (data.version !== 1 && data.version !== 2 && data.version !== 3) {
       throw new Error(`Unsupported canvas version: ${data.version}`);
     }
-    // v1 and v2 share the same on-disk shape — anchor types live in the
-    // registry, not the JSON. v1 silently upgrades to v2 on the next save.
     set({
       symbols: data.symbols ?? [],
       connections: data.connections ?? [],
+      customSymbols: data.customSymbols ?? [],
       offsetX: data.viewport?.offsetX ?? 0,
       offsetY: data.viewport?.offsetY ?? 0,
       zoom: data.viewport?.zoom ?? 1,

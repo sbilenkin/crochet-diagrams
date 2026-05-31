@@ -6,6 +6,7 @@ from passlib.hash import bcrypt
 
 from auth import create_access_token, get_db
 from routes.projects import router as projects_router
+from routes.custom_symbols import router as custom_symbols_router
 
 app = FastAPI()
 
@@ -18,6 +19,7 @@ app.add_middleware(
 )
 
 app.include_router(projects_router)
+app.include_router(custom_symbols_router)
 
 @app.get("/")
 def read_root():
