@@ -9,6 +9,7 @@ import type {
 } from '../types/canvas';
 import { maxConnectionsFor, type AnchorType } from '../config/anchorTypes';
 import { CROCHET_SYMBOLS } from '../config/crochetSymbols';
+import { useCustomSymbolStore } from './customSymbolStore';
 import {
   getConnectedComponent,
   getSymbolAnchors,
@@ -673,11 +674,26 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   serialize: () => {
     const { symbols, connections, customSymbols, offsetX, offsetY, zoom } =
       get();
+
+    const usedIds = new Set(
+      symbols
+        .filter((s) => s.type.startsWith('custom:'))
+        .map((s) => s.type.slice('custom:'.length)),
+    );
+
+    const librarySymbols = useCustomSymbolStore.getState().symbols;
+    const bundled = [
+      ...customSymbols.filter((s) => usedIds.has(s.id)),
+      ...librarySymbols.filter(
+        (s) => usedIds.has(s.id) && !customSymbols.some((c) => c.id === s.id),
+      ),
+    ];
+
     return {
       version: 3,
       symbols,
       connections,
-      customSymbols,
+      customSymbols: bundled,
       viewport: { offsetX, offsetY, zoom },
     };
   },

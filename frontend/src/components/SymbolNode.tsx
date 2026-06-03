@@ -1,9 +1,8 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { Group, Image as KonvaImage, Rect } from 'react-konva';
+import { Group, Image as KonvaImage, Path, Rect } from 'react-konva';
 import Konva from 'konva';
-import { CROCHET_SYMBOLS } from '../config/crochetSymbols';
 import { useCanvasStore } from '../stores/canvasStore';
-import type { AnchorRef, CanvasSymbol, Connection } from '../types/canvas';
+import type { AnchorRef, CanvasSymbol, Connection, CustomSymbolDef, SymbolDef } from '../types/canvas';
 import {
   DETACH_THRESHOLD,
   MAGNETIC_BIAS,
@@ -91,8 +90,10 @@ function buildTentativeDetaches(
 }
 
 function SymbolNode({ symbol, selected }: Props) {
-  const def = CROCHET_SYMBOLS[symbol.type];
-  const image = useHtmlImage(def?.svgPath ?? '');
+  const def = useCanvasStore((s) => s.getSymbolDef(symbol.type));
+  const isCustom = def !== undefined && 'paths' in def;
+  const svgPath = isCustom ? '' : (def as SymbolDef | undefined)?.svgPath ?? '';
+  const image = useHtmlImage(svgPath);
   const sessionRef = useRef<DragSession | null>(null);
   const lastMatchRef = useRef<SnapMatch | null>(null);
   const groupRef = useRef<Konva.Group | null>(null);
@@ -424,13 +425,37 @@ function SymbolNode({ symbol, selected }: Props) {
       onDragEnd={handleDragEnd}
       dragBoundFunc={handleDragBound}
     >
-      <KonvaImage
-        image={image}
-        width={width}
-        height={height}
-        offsetX={width / 2}
-        offsetY={height / 2}
-      />
+      {isCustom ? (() => {
+        const d = def as CustomSymbolDef;
+        const scale = d.width / 100;
+        return (
+          <>
+            {/* Transparent hit area so the outer Group receives drag/click events.
+                fill="transparent" keeps it invisible but still registers on Konva's hit canvas. */}
+            <Rect
+              width={d.width}
+              height={d.height}
+              offsetX={d.width / 2}
+              offsetY={d.height / 2}
+              fill="transparent"
+              strokeEnabled={false}
+            />
+            <Group scaleX={scale} scaleY={scale}>
+              {d.paths.map((pathData, i) => (
+                <Path key={i} data={pathData} stroke="black" strokeWidth={2 / scale} fillEnabled={false} listening={false} />
+              ))}
+            </Group>
+          </>
+        );
+      })() : (
+        <KonvaImage
+          image={image}
+          width={width}
+          height={height}
+          offsetX={width / 2}
+          offsetY={height / 2}
+        />
+      )}
       {selected && (
         <Rect
           width={width + 6}

@@ -3,7 +3,7 @@ import { SYMBOL_LIST } from '../config/crochetSymbols';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useCustomSymbolStore } from '../stores/customSymbolStore';
 import { useSymbolEditorStore } from '../stores/symbolEditorStore';
-import type { SymbolCategory, SymbolDef } from '../types/canvas';
+import type { CustomSymbolDef, SymbolCategory, SymbolDef } from '../types/canvas';
 import ChainBulkAddPopover, { type ChainAddMode } from './ChainBulkAddPopover';
 
 const CATEGORY_ORDER: SymbolCategory[] = ['basic', 'structural', 'advanced'];
@@ -22,7 +22,9 @@ function SymbolPalette({ viewportCenter }: Props) {
   const addChainSequence = useCanvasStore((s) => s.addChainSequence);
   const addChainRing = useCanvasStore((s) => s.addChainRing);
   const customSymbols = useCustomSymbolStore((s) => s.symbols);
+  const removeCustomSymbol = useCustomSymbolStore((s) => s.remove);
   const openNew = useSymbolEditorStore((s) => s.openNew);
+  const openEdit = useSymbolEditorStore((s) => s.openEdit);
   const [chainPopoverOpen, setChainPopoverOpen] = useState(false);
   const [lastChainCount, setLastChainCount] = useState(10);
   const chainBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -44,6 +46,26 @@ function SymbolPalette({ viewportCenter }: Props) {
     addSymbol(def.key, x, y);
   };
 
+  const handlePlaceCustom = (sym: CustomSymbolDef) => {
+    const { x, y } = viewportCenter();
+    const canvasStore = useCanvasStore.getState();
+    if (!canvasStore.customSymbols.find((s) => s.id === sym.id)) {
+      canvasStore.addCustomSymbol(sym);
+    }
+    addSymbol(`custom:${sym.id}`, x, y);
+  };
+
+  const handleDeleteCustom = (sym: CustomSymbolDef) => {
+    const canvasStore = useCanvasStore.getState();
+    const inUse = canvasStore.symbols.filter((s) => s.type === `custom:${sym.id}`).length;
+    const message = inUse > 0
+      ? `"${sym.name}" is used ${inUse} time${inUse > 1 ? 's' : ''} in this project. Remove all instances and delete?`
+      : `Delete "${sym.name}"?`;
+    if (!window.confirm(message)) return;
+    if (inUse > 0) canvasStore.deleteCustomSymbol(sym.id);
+    void removeCustomSymbol(sym.id);
+  };
+
   const handleChainSubmit = (count: number, mode: ChainAddMode) => {
     const { x, y } = viewportCenter();
     if (mode === 'ring') addChainRing(count, x, y);
@@ -55,7 +77,7 @@ function SymbolPalette({ viewportCenter }: Props) {
   return (
     <aside
       className="p-3 border-end bg-light"
-      style={{ width: 220, overflowY: 'auto', height: '100%' }}
+      style={{ width: 220, flexShrink: 0, overflowY: 'auto', height: '100%' }}
     >
       <h5 className="mb-3">Symbols</h5>
       {CATEGORY_ORDER.map((cat) => (
@@ -93,22 +115,41 @@ function SymbolPalette({ viewportCenter }: Props) {
         <div className="text-muted small text-uppercase mb-2">Custom</div>
         <div className="d-flex flex-column gap-1">
           {customSymbols.map((sym) => (
-            <div
-              key={sym.id}
-              className="d-flex align-items-center gap-2 px-2 py-1 rounded"
-              style={{ fontSize: '0.85rem' }}
-            >
-              <svg
-                viewBox="-50 -50 100 100"
-                width={24}
-                height={24}
-                style={{ flexShrink: 0, border: '1px solid #dee2e6', background: '#fff' }}
+            <div key={sym.id} className="d-flex align-items-center gap-1">
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 text-start flex-grow-1"
+                style={{ minWidth: 0 }}
+                onClick={() => handlePlaceCustom(sym)}
               >
-                {sym.paths.map((d, i) => (
-                  <path key={i} d={d} stroke="black" strokeWidth={2} fill="none" />
-                ))}
-              </svg>
-              <span className="text-truncate">{sym.name}</span>
+                <svg
+                  viewBox="-50 -50 100 100"
+                  width={24}
+                  height={24}
+                  style={{ flexShrink: 0, border: '1px solid #dee2e6', background: '#fff' }}
+                >
+                  {sym.paths.map((d, i) => (
+                    <path key={i} d={d} stroke="black" strokeWidth={2} fill="none" />
+                  ))}
+                </svg>
+                <span className="text-truncate">{sym.name}</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm px-1"
+                title="Edit"
+                onClick={() => openEdit(sym)}
+              >
+                ✎
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-danger btn-sm px-1"
+                title="Delete"
+                onClick={() => handleDeleteCustom(sym)}
+              >
+                ×
+              </button>
             </div>
           ))}
           <button
