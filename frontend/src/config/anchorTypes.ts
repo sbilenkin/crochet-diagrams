@@ -45,7 +45,7 @@ export function isMultiOccupancy(type: AnchorType): boolean {
 // Temporary scaffolding: hide non-essential anchor types so we can polish the
 // single-crochet → starting-chain interaction in isolation. Flip the flag to
 // false to restore the full anchor system.
-export const SIMPLE_CONNECTIONS_MODE = true;
+export const SIMPLE_CONNECTIONS_MODE = false;
 
 const HIDDEN_IN_SIMPLE_MODE: ReadonlySet<AnchorType> = new Set([
   'STITCH_TOP',

@@ -15,6 +15,7 @@ import {
   getSymbolAnchors,
   isTopSideAnchorType,
   relayoutFromMany,
+  setCustomAnchorResolver,
   type RelayoutMove,
 } from '../utils/anchors';
 
@@ -721,3 +722,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   markClean: () => set({ dirty: false }),
 }));
+
+setCustomAnchorResolver((type) => {
+  if (!type.startsWith('custom:')) return undefined;
+  const id = type.slice('custom:'.length);
+  const def = useCanvasStore.getState().customSymbols.find((s) => s.id === id);
+  if (!def) return undefined;
+  // Anchor offsets are stored in symbol space (−50..+50). Scale to canvas pixels
+  // using the same factor as the visual rendering (def.width / 100).
+  const scale = def.width / 100;
+  return def.anchors.map((a) => ({
+    ...a,
+    offsetX: a.offsetX * scale,
+    offsetY: a.offsetY * scale,
+  }));
+});
