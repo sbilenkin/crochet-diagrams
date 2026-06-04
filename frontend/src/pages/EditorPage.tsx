@@ -141,10 +141,10 @@ function EditorPage() {
 
   return (
     <div className="d-flex flex-column" style={{ height: '100vh' }}>
-      <div className="d-flex align-items-center gap-2 p-2 border-bottom bg-white">
+      <div className="d-flex align-items-center gap-2 p-2" style={{ background: 'var(--color-toolbar)', flexShrink: 0 }}>
         <button
           type="button"
-          className="btn btn-sm btn-outline-secondary"
+          className="btn btn-sm toolbar-btn"
           onClick={() => navigate('/projects')}
         >
           ← Projects
@@ -162,7 +162,7 @@ function EditorPage() {
         <div className="ms-auto d-flex gap-2">
           <button
             type="button"
-            className="btn btn-sm btn-outline-secondary"
+            className="btn btn-sm toolbar-btn"
             onClick={undo}
             disabled={!canUndo || loading}
             title="Undo (Ctrl+Z)"
@@ -171,7 +171,7 @@ function EditorPage() {
           </button>
           <button
             type="button"
-            className="btn btn-sm btn-outline-secondary"
+            className="btn btn-sm toolbar-btn"
             onClick={redo}
             disabled={!canRedo || loading}
             title="Redo (Ctrl+Shift+Z)"
@@ -181,7 +181,7 @@ function EditorPage() {
           <div className="position-relative">
             <button
               type="button"
-              className="btn btn-sm btn-outline-secondary"
+              className="btn btn-sm toolbar-btn"
               onClick={(e) => {
                 e.stopPropagation();
                 setExportOpen((o) => !o);
@@ -193,13 +193,14 @@ function EditorPage() {
             </button>
             {exportOpen && (
               <div
-                className="position-absolute end-0 mt-1 bg-white border rounded shadow-sm"
-                style={{ zIndex: 1050, minWidth: 160 }}
+                className="position-absolute end-0 mt-1 rounded shadow-sm"
+                style={{ zIndex: 1050, minWidth: 160, background: 'var(--color-panel)' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
                   type="button"
                   className="btn btn-sm btn-link w-100 text-start text-decoration-none"
+                  style={{ color: 'var(--color-text-primary)' }}
                   onClick={handleExportPNG}
                 >
                   Export as PNG
@@ -207,6 +208,7 @@ function EditorPage() {
                 <button
                   type="button"
                   className="btn btn-sm btn-link w-100 text-start text-decoration-none"
+                  style={{ color: 'var(--color-text-primary)' }}
                   onClick={handleExportPDF}
                 >
                   Export as PDF

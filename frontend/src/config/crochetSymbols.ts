@@ -6,9 +6,12 @@ import singleCrochetSvg from '../assets/symbols/single_crochet.svg';
 import halfDoubleSvg from '../assets/symbols/half_double.svg';
 import doubleCrochetSvg from '../assets/symbols/double_crochet.svg';
 import trebleCrochetSvg from '../assets/symbols/treble_crochet.svg';
+import doubleTrebleSvg from '../assets/symbols/double_treble.svg';
 import magicRingSvg from '../assets/symbols/magic_ring.svg';
-import increaseSvg from '../assets/symbols/increase.svg';
-import decreaseSvg from '../assets/symbols/decrease.svg';
+import sc2togSvg from '../assets/symbols/sc2tog.svg';
+import sc3togSvg from '../assets/symbols/sc3tog.svg';
+import dc2togSvg from '../assets/symbols/dc2tog.svg';
+import dc3togSvg from '../assets/symbols/dc3tog.svg';
 
 function radialAnchors(count: number, radius: number): AnchorDef[] {
   return Array.from({ length: count }, (_, i) => {
@@ -98,6 +101,18 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
       { name: 'top', type: AnchorType.STITCH_TOP, offsetX: 0, offsetY: -30, direction: 'up' },
     ],
   },
+  double_treble: {
+    key: 'double_treble',
+    displayName: 'Double Treble (dtr)',
+    svgPath: doubleTrebleSvg,
+    width: 30,
+    height: 70,
+    category: 'basic',
+    anchors: [
+      { name: 'bottom', type: AnchorType.STITCH_BASE, offsetX: 0, offsetY: 35, direction: 'down' },
+      { name: 'top', type: AnchorType.STITCH_TOP, offsetX: 0, offsetY: -35, direction: 'up' },
+    ],
+  },
   magic_ring: {
     key: 'magic_ring',
     displayName: 'Magic Ring',
@@ -107,30 +122,58 @@ export const CROCHET_SYMBOLS: Record<string, SymbolDef> = {
     category: 'structural',
     anchors: radialAnchors(12, 28),
   },
-  increase: {
-    key: 'increase',
-    displayName: 'Increase (inc)',
-    svgPath: increaseSvg,
+  sc2tog: {
+    key: 'sc2tog',
+    displayName: 'sc2tog',
+    svgPath: sc2togSvg,
     width: 40,
     height: 40,
     category: 'advanced',
     anchors: [
-      { name: 'bottom', type: AnchorType.STITCH_BASE, offsetX: 0, offsetY: 20, direction: 'down' },
-      { name: 'top_left', type: AnchorType.STITCH_TOP, offsetX: -16, offsetY: -20, direction: 'up' },
-      { name: 'top_right', type: AnchorType.STITCH_TOP, offsetX: 16, offsetY: -20, direction: 'up' },
+      { name: 'top', type: AnchorType.STITCH_TOP, offsetX: 0, offsetY: -20, direction: 'up' },
+      { name: 'bottom_left', type: AnchorType.STITCH_BASE, offsetX: -10, offsetY: 20, direction: 'down' },
+      { name: 'bottom_right', type: AnchorType.STITCH_BASE, offsetX: 10, offsetY: 20, direction: 'down' },
     ],
   },
-  decrease: {
-    key: 'decrease',
-    displayName: 'Decrease (dec)',
-    svgPath: decreaseSvg,
-    width: 40,
+  sc3tog: {
+    key: 'sc3tog',
+    displayName: 'sc3tog',
+    svgPath: sc3togSvg,
+    width: 48,
     height: 40,
     category: 'advanced',
     anchors: [
-      { name: 'bottom_left', type: AnchorType.STITCH_BASE, offsetX: -16, offsetY: 20, direction: 'down' },
-      { name: 'bottom_right', type: AnchorType.STITCH_BASE, offsetX: 16, offsetY: 20, direction: 'down' },
       { name: 'top', type: AnchorType.STITCH_TOP, offsetX: 0, offsetY: -20, direction: 'up' },
+      { name: 'bottom_left', type: AnchorType.STITCH_BASE, offsetX: -18, offsetY: 20, direction: 'down' },
+      { name: 'bottom_center', type: AnchorType.STITCH_BASE, offsetX: 0, offsetY: 20, direction: 'down' },
+      { name: 'bottom_right', type: AnchorType.STITCH_BASE, offsetX: 18, offsetY: 20, direction: 'down' },
+    ],
+  },
+  dc2tog: {
+    key: 'dc2tog',
+    displayName: 'dc2tog',
+    svgPath: dc2togSvg,
+    width: 40,
+    height: 50,
+    category: 'advanced',
+    anchors: [
+      { name: 'top', type: AnchorType.STITCH_TOP, offsetX: 0, offsetY: -25, direction: 'up' },
+      { name: 'bottom_left', type: AnchorType.STITCH_BASE, offsetX: -10, offsetY: 25, direction: 'down' },
+      { name: 'bottom_right', type: AnchorType.STITCH_BASE, offsetX: 10, offsetY: 25, direction: 'down' },
+    ],
+  },
+  dc3tog: {
+    key: 'dc3tog',
+    displayName: 'dc3tog',
+    svgPath: dc3togSvg,
+    width: 48,
+    height: 50,
+    category: 'advanced',
+    anchors: [
+      { name: 'top', type: AnchorType.STITCH_TOP, offsetX: 0, offsetY: -25, direction: 'up' },
+      { name: 'bottom_left', type: AnchorType.STITCH_BASE, offsetX: -18, offsetY: 25, direction: 'down' },
+      { name: 'bottom_center', type: AnchorType.STITCH_BASE, offsetX: 0, offsetY: 25, direction: 'down' },
+      { name: 'bottom_right', type: AnchorType.STITCH_BASE, offsetX: 18, offsetY: 25, direction: 'down' },
     ],
   },
 };

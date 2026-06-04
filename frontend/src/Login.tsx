@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import 'bootstrap/dist/css/bootstrap.css';
-import './index.css'
 import { setAccessToken } from './api/client';
 
 interface LoginProps {

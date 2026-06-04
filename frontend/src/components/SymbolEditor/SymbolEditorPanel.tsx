@@ -24,7 +24,7 @@ export default function SymbolEditorPanel() {
     setNameError(false);
     setSaving(true);
     try {
-      const payload = { name: name.trim(), width: 40, height: 40, paths, anchors };
+      const payload = { name: name.trim(), width: 60, height: 60, paths, anchors };
       if (editingId) {
         await update(editingId, payload);
       } else {
@@ -38,14 +38,14 @@ export default function SymbolEditorPanel() {
 
   return (
     <aside
-      className="border-start bg-light d-flex flex-column"
-      style={{ width: 340, flexShrink: 0, overflowY: 'auto' }}
+      className="d-flex flex-column"
+      style={{ width: 340, flexShrink: 0, overflowY: 'auto', background: 'var(--color-panel)' }}
     >
       {/* Header */}
-      <div className="d-flex align-items-center justify-content-between p-2 border-bottom bg-white">
+      <div className="d-flex align-items-center justify-content-between p-2" style={{ background: 'var(--color-panel)' }}>
         <span className="fw-semibold small">Symbol Editor</span>
         <div className="d-flex gap-1">
-          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={close}>
+          <button type="button" className="btn btn-sm toolbar-btn" onClick={close}>
             Cancel
           </button>
           <button type="button" className="btn btn-sm btn-primary" onClick={handleSave} disabled={saving}>
@@ -197,7 +197,7 @@ export default function SymbolEditorPanel() {
             <div className="text-muted small mb-1">Placed anchors</div>
             <div className="d-flex flex-column gap-1">
               {anchors.map((a, i) => (
-                <div key={i} className="d-flex align-items-center gap-2 px-2 py-1 rounded bg-white border" style={{ fontSize: '0.8rem' }}>
+                <div key={i} className="d-flex align-items-center gap-2 px-2 py-1 rounded" style={{ fontSize: '0.8rem', background: 'var(--color-canvas)' }}>
                   <span
                     style={{
                       width: 8, height: 8, borderRadius: '50%',
@@ -225,10 +225,10 @@ export default function SymbolEditorPanel() {
             viewBox="-50 -50 100 100"
             width={30}
             height={30}
-            style={{ border: '1px solid #dee2e6', background: '#fff', display: 'block' }}
+            style={{ background: 'var(--color-canvas)', borderRadius: 6, display: 'block' }}
           >
             {paths.map((d, i) => (
-              <path key={i} d={d} stroke="black" strokeWidth={2} fill="none" />
+              <path key={i} d={d} stroke="var(--color-glyph)" strokeWidth={2} fill="none" />
             ))}
           </svg>
         </div>

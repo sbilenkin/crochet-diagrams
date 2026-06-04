@@ -132,7 +132,14 @@ const DiagramCanvas = forwardRef<DiagramCanvasHandle>((_props, ref) => {
   return (
     <div
       ref={containerRef}
-      style={{ flex: 1, height: '100%', overflow: 'hidden', background: '#fafafa' }}
+      style={{
+        flex: 1,
+        height: '100%',
+        overflow: 'hidden',
+        background: 'var(--color-canvas)',
+        backgroundImage: 'radial-gradient(circle, #c8c7c1 1px, transparent 1px)',
+        backgroundSize: '24px 24px',
+      }}
     >
       <Stage
         ref={stageRef}
