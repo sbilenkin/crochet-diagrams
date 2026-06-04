@@ -1,8 +1,6 @@
 import { toast, ToastContainer } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import 'react-toastify/dist/ReactToastify.css';
-import './index.css';
-import 'bootstrap/dist/css/bootstrap.css';
 
 interface SignupResponse {
   detail?: string;

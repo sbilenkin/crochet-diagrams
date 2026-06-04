@@ -1,9 +1,82 @@
+:root {
+  --color-toolbar: #DDEEF8;
+  --color-sidebar: #E8E4F6;
+  --color-accent-mint: #D4F0E6;
+  --color-accent-blush: #F5E0ED;
+  --color-canvas: #F5F5F2;
+  --color-panel: #FFFFFF;
+  --color-text-primary: #2C2A3A;
+  --color-text-muted: #8A8799;
+  --color-glyph: #2C2A3A;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Nunito', sans-serif;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+/* ── Toolbar buttons ─────────────────────────────────────── */
+.toolbar-btn {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  transition: background 150ms ease;
+}
+.toolbar-btn:hover:not(:disabled) { background: var(--color-accent-mint); }
+.toolbar-btn:active:not(:disabled), .toolbar-btn.active { background: var(--color-accent-blush); }
+.toolbar-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Stitch palette cards ────────────────────────────────── */
+.stitch-card {
+  background: var(--color-panel);
+  border: none;
+  border-radius: 10px;
+  color: var(--color-text-primary);
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  transition: background 150ms ease;
+  text-align: left;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.stitch-card:hover:not(:disabled) { background: var(--color-accent-mint); }
+.stitch-card:active:not(:disabled) { background: var(--color-accent-blush); }
+
+/* ── Form controls ───────────────────────────────────────── */
+.form-control:focus {
+  border-color: var(--color-accent-mint);
+  box-shadow: 0 0 0 0.2rem rgba(212, 240, 230, 0.6);
+}
+
+/* ── Bootstrap overrides ─────────────────────────────────── */
+.btn-outline-secondary.active {
+  background: var(--color-accent-blush);
+  border-color: transparent;
+  color: var(--color-text-primary);
+}
+
+.text-muted {
+  color: var(--color-text-muted) !important;
+}
+
+/* ── Login / Signup pages ────────────────────────────────── */
 .Login {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   align-items: center;
   min-height: 100vh;
+  background: var(--color-canvas);
 }
 
 .login-form button {
@@ -16,15 +89,22 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  background: var(--color-panel);
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(44, 42, 58, 0.08);
+  min-width: 320px;
 }
 
 .login-form input {
-  margin-left: 1rem;
+  margin-left: 0;
 }
 
 .login-welcome {
   margin-top: 4rem;
   margin-bottom: 2rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 .logout-button {
@@ -33,31 +113,14 @@
   right: 1rem;
 }
 
-.sidebar {
-  width: 16.6666%;
-  /* 1/6 of the width */
-  min-height: 100vh;
-  /* full height */
-  background-color: #f8f9fa;
-  /* Bootstrap gray */
-  border-right: 1px solid #dee2e6;
+/* ── Project cards ───────────────────────────────────────── */
+.card {
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 12px rgba(44, 42, 58, 0.07);
 }
 
-.sidebar .dropdown-menu {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  margin: 0;
-  margin-top: -0.5rem;
-  position: static;
-}
-
-.sidebar .dropdown-item {
-  background: transparent;
-  color: inherit;
-  padding-left: 2rem;
-  padding-top: 0.25rem;
-  padding-bottom: 0.25rem;
-  border: none;
+.card-img-top.bg-light,
+.card-img-top {
+  background: var(--color-canvas) !important;
 }

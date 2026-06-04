@@ -96,13 +96,13 @@ function Grid() {
   for (let u = -50; u <= 50; u += 10) {
     const p = u * SCALE;
     lines.push(
-      <Line key={`h${u}`} points={[-50 * SCALE, p, 50 * SCALE, p]} stroke="#e8e8e8" strokeWidth={1 / SCALE} listening={false} />,
-      <Line key={`v${u}`} points={[p, -50 * SCALE, p, 50 * SCALE]} stroke="#e8e8e8" strokeWidth={1 / SCALE} listening={false} />,
+      <Line key={`h${u}`} points={[-50 * SCALE, p, 50 * SCALE, p]} stroke="#ddddd9" strokeWidth={1 / SCALE} listening={false} />,
+      <Line key={`v${u}`} points={[p, -50 * SCALE, p, 50 * SCALE]} stroke="#ddddd9" strokeWidth={1 / SCALE} listening={false} />,
     );
   }
   lines.push(
-    <Line key="cx" points={[-50 * SCALE, 0, 50 * SCALE, 0]} stroke="#d0d0d0" strokeWidth={1.5 / SCALE} listening={false} />,
-    <Line key="cy" points={[0, -50 * SCALE, 0, 50 * SCALE]} stroke="#d0d0d0" strokeWidth={1.5 / SCALE} listening={false} />,
+    <Line key="cx" points={[-50 * SCALE, 0, 50 * SCALE, 0]} stroke="#c8c7c2" strokeWidth={1.5 / SCALE} listening={false} />,
+    <Line key="cy" points={[0, -50 * SCALE, 0, 50 * SCALE]} stroke="#c8c7c2" strokeWidth={1.5 / SCALE} listening={false} />,
   );
   return <>{lines}</>;
 }
@@ -231,7 +231,7 @@ export default function DrawingCanvas() {
   }
 
   return (
-    <div style={{ border: '1px solid #dee2e6', display: 'inline-block', cursor: 'crosshair' }}>
+    <div style={{ display: 'inline-block', cursor: 'crosshair', borderRadius: 8, overflow: 'hidden', background: 'var(--color-canvas)' }}>
       <Stage
         ref={stageRef}
         width={CANVAS_PX}

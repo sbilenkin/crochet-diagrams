@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { SYMBOL_LIST } from '../config/crochetSymbols';
+import StitchGlyph from './StitchGlyph';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useCustomSymbolStore } from '../stores/customSymbolStore';
 import { useSymbolEditorStore } from '../stores/symbolEditorStore';
@@ -76,10 +77,9 @@ function SymbolPalette({ viewportCenter }: Props) {
 
   return (
     <aside
-      className="p-3 border-end bg-light"
-      style={{ width: 220, flexShrink: 0, overflowY: 'auto', height: '100%' }}
+      style={{ width: 220, flexShrink: 0, overflowY: 'auto', height: '100%', background: 'var(--color-sidebar)', padding: '0.75rem' }}
     >
-      <h5 className="mb-3">Symbols</h5>
+      <h5 className="mb-3" style={{ fontWeight: 600 }}>Symbols</h5>
       {CATEGORY_ORDER.map((cat) => (
         <div key={cat} className="mb-3">
           <div className="text-muted small text-uppercase mb-2">
@@ -93,16 +93,10 @@ function SymbolPalette({ viewportCenter }: Props) {
                   key={def.key}
                   ref={isChain ? chainBtnRef : undefined}
                   type="button"
-                  className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 text-start w-100"
+                  className="stitch-card"
                   onClick={() => handleClick(def)}
                 >
-                  <img
-                    src={def.svgPath}
-                    alt=""
-                    width={24}
-                    height={24}
-                    style={{ flexShrink: 0 }}
-                  />
+                  <StitchGlyph symbolKey={def.key} size={24} />
                   <span>{def.displayName}</span>
                 </button>
               );
@@ -118,7 +112,7 @@ function SymbolPalette({ viewportCenter }: Props) {
             <div key={sym.id} className="d-flex align-items-center gap-1">
               <button
                 type="button"
-                className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 text-start flex-grow-1"
+                className="stitch-card flex-grow-1"
                 style={{ minWidth: 0 }}
                 onClick={() => handlePlaceCustom(sym)}
               >
@@ -126,17 +120,17 @@ function SymbolPalette({ viewportCenter }: Props) {
                   viewBox="-50 -50 100 100"
                   width={24}
                   height={24}
-                  style={{ flexShrink: 0, border: '1px solid #dee2e6', background: '#fff' }}
+                  style={{ flexShrink: 0, background: 'var(--color-canvas)', borderRadius: 4 }}
                 >
                   {sym.paths.map((d, i) => (
-                    <path key={i} d={d} stroke="black" strokeWidth={2} fill="none" />
+                    <path key={i} d={d} stroke="var(--color-glyph)" strokeWidth={2} fill="none" />
                   ))}
                 </svg>
                 <span className="text-truncate">{sym.name}</span>
               </button>
               <button
                 type="button"
-                className="btn btn-outline-secondary btn-sm px-1"
+                className="toolbar-btn btn px-2 py-1"
                 title="Edit"
                 onClick={() => openEdit(sym)}
               >
@@ -144,7 +138,7 @@ function SymbolPalette({ viewportCenter }: Props) {
               </button>
               <button
                 type="button"
-                className="btn btn-outline-danger btn-sm px-1"
+                className="toolbar-btn btn px-2 py-1"
                 title="Delete"
                 onClick={() => handleDeleteCustom(sym)}
               >
@@ -154,10 +148,10 @@ function SymbolPalette({ viewportCenter }: Props) {
           ))}
           <button
             type="button"
-            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 text-start w-100"
+            className="stitch-card"
             onClick={openNew}
           >
-            <span style={{ fontSize: '1rem', lineHeight: 1 }}>+</span>
+            <span style={{ fontSize: '1rem', lineHeight: 1, flexShrink: 0, width: 24, textAlign: 'center' }}>+</span>
             <span>New symbol</span>
           </button>
         </div>

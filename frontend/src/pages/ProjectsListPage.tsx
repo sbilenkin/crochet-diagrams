@@ -62,7 +62,7 @@ function ProjectsListPage() {
   };
 
   return (
-    <div className="container py-4">
+    <div className="container py-4" style={{ minHeight: '100vh', background: 'var(--color-canvas)' }}>
       <div className="d-flex align-items-center mb-4">
         <h2 className="mb-0">Your Projects</h2>
         <span className="text-muted ms-3">Hey, {username}</span>
@@ -116,8 +116,8 @@ function ProjectsListPage() {
             <div key={p.id} className="col-sm-6 col-md-4 col-lg-3">
               <div className="card h-100">
                 <div
-                  className="card-img-top bg-light d-flex align-items-center justify-content-center"
-                  style={{ height: 140 }}
+                  className="card-img-top d-flex align-items-center justify-content-center"
+                  style={{ height: 140, background: 'var(--color-canvas)' }}
                 >
                   {p.thumbnail ? (
                     <img
