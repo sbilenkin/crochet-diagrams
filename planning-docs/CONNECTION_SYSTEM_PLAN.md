@@ -1,325 +1,163 @@
-# Crochet Symbol Connection System — Improvement Plan
+# Connection System — Feature Planning Document
 
-## Context
+## Overview
 
-This document focuses specifically on improving how crochet symbols connect, snap, and interact on the canvas. The app already has a working drag-and-drop canvas with basic snapping, save/load, undo/redo, and export. This plan replaces and extends the existing connection logic to properly model how crochet diagrams actually work.
+This document covers four features that together move the connection system toward CAD-level sophistication. They are listed in recommended implementation order. Each section contains full design specifications, open questions to resolve before building, and implementation notes.
 
-**Problems with the current system:**
-- Snapping feels abrupt and jumpy — symbols teleport into position
-- Only simple one-to-one connections are supported
-- Cannot place multiple stitches into the same stitch (shells, increases)
-- Cannot work stitches into chain spaces
-- Cannot place stitches into chains
-- No distinction between working in rows vs. rounds
-- Chains don't link together to form foundation chains
+Users will invest time learning these interactions — that is expected and acceptable. The interactions should be discoverable and consistent, not necessarily instant.
 
 ---
 
-## Part 1: Smooth Snapping
+## Feature 1: Multi-Select Mechanism
 
-**Goal:** Replace the abrupt snap-into-place behavior with a smooth, guided experience that feels natural.
+### Why first
+Every subsequent feature on this list requires multi-select. It is the shared input primitive. Build it once here; the later features will call it directly.
 
-### 1.1 Animated Snap Transition
+### Behavior
+- The user holds a modifier key (suggested: **Shift**) and clicks additional stitches to add them to the selection
+- Alternatively, the user clicks and drags on empty canvas to draw a selection box; all stitches fully within the box are selected
+- Selected stitches receive a consistent visual treatment (e.g., highlight ring or color shift) so the user can see what is in the selection at a glance
+- Clicking empty canvas with no modifier key clears the selection
+- Pressing Escape clears the selection
 
-When a symbol crosses the snap threshold, do NOT instantly teleport it to the anchor position. Instead:
+### Implementation notes
+- Selection state should live at the top level of the canvas state, not inside individual stitch components
+- The selection set is a list of stitch IDs
+- Both the shift-click and drag-box methods should produce the same selection state — downstream features should not care how the selection was built
+- The drag selection box should only trigger if the drag starts on empty canvas, not on a stitch (which should initiate a move)
 
-- Use a short easing animation (150–200ms, ease-out) to glide the symbol from its current position to the snap target
-- Konva supports `.to()` for tweened animations — use this rather than instantly setting `x` and `y`
-- During the animation, the symbol should not respond to further drag events — briefly lock input until the tween completes
-
-### 1.2 Proximity Feedback (Pre-Snap)
-
-Before the snap fires, give the user visual feedback that a connection is close:
-
-- **Magnetic zone (outer radius, ~40px):** When a dragged symbol's anchor enters this zone around a compatible target anchor, show a subtle visual cue — e.g., the target anchor glows or pulses, a faint dashed line draws between the two anchors. The dragged symbol should feel slightly "pulled" toward the target (bias the position by 10–20% toward the snap point while still following the cursor).
-- **Snap zone (inner radius, ~15px):** When the anchor enters this tighter zone, fire the actual snap with the animated transition from 1.1.
-- **Incompatible anchors:** If a dragged anchor is near a target anchor but they aren't compatible (see Part 2), show no feedback at all — don't glow, don't pull. This teaches the user which connections are valid without error messages.
-
-### 1.3 Detach Behavior
-
-When dragging a connected symbol away from its connection:
-
-- Don't break the connection the instant the drag starts — only break it once the user has dragged beyond the magnetic zone radius (~40px from the anchor)
-- Use a brief "stretch" visual — draw a faint line between the symbol and its former anchor as it's being pulled away, then break cleanly once past the threshold
-- On detach, fire the `disconnectSymbols` store action
-
-### 1.4 Implementation Notes
-
-- Keep the snap threshold distances configurable (store them in a constants file or the symbol config) so they can be tuned by feel during development
-- All proximity checks should use squared distances (`dx*dx + dy*dy < r*r`) to avoid unnecessary `Math.sqrt` calls on every drag frame
-- Throttle the proximity check to every ~16ms (one frame at 60fps) if performance is an issue with many symbols
+### Open questions to resolve before building
+- Should Shift+click on an already-selected stitch **deselect** it, or do nothing?
+- Is there a maximum number of stitches that can be selected at once? (Probably not, but worth being explicit)
+- Should the drag-box select stitches that are *partially* within the box, or only fully enclosed ones? (Recommend: fully enclosed, consistent with most diagramming tools)
 
 ---
 
-## Part 2: Connection Type System
+## Feature 2: Hinge Rotation
 
-**Goal:** Model the different ways crochet stitches connect to each other, replacing the current generic anchor system.
+### Why second
+This is the highest-impact feature on the list — it is what finally makes the application functional for building real patterns. It does not depend on multi-select, but multi-select is faster to build and getting it stable first keeps the remaining steps clean. Hinge rotation touches the core connection model deeply, so it should be stable before features build on top of it.
 
-### 2.1 Anchor Types
+### Behavior
+Every connection point between two stitches acts as a **hinge**. The user can grab either side of a connection and rotate it around the shared point.
 
-Redefine anchors with explicit types that encode crochet semantics. Every anchor has:
+- When the user hovers over a connection point, a rotation affordance appears (e.g., a circular handle or cursor change)
+- Clicking and dragging the affordance rotates the selected side around the connection point
+- "Either side" means: the user can grab the stitch *above* the connection and rotate it (keeping the lower stitch fixed), or grab the stitch *below* and rotate it (keeping the upper fixed)
+- Rotation snaps to common angles (suggested: every 15°) with the ability to hold a second modifier key to disable snapping for freeform rotation
+- All stitches connected *to* the rotated stitch move with it (the rotation propagates through the chain)
 
-```typescript
-interface Anchor {
-  name: string;            // e.g., "top", "base", "slot_1"
-  type: AnchorType;        // see enum below
-  offsetX: number;         // position relative to symbol center
-  offsetY: number;
-  connectedTo: string | null;  // "symbolId:anchorName" or null
-}
+### What this unlocks
+Without hinge rotation, the user can only build straight or ring-based patterns. With it, fans, shells, chevrons, granny squares, and virtually all real pattern shapes become constructible.
 
-enum AnchorType {
-  STITCH_TOP,      // the top of a stitch — where another stitch can be worked into it
-  STITCH_BASE,     // the bottom/base of a stitch — attaches down into another stitch's top or a chain
-  CHAIN_LEFT,      // left side of a chain link
-  CHAIN_RIGHT,     // right side of a chain link
-  CHAIN_TOP,       // top of a chain — a stitch can be worked into it
-  RING_SLOT,       // a slot on a magic ring — stitches attach here
-  SPACE,           // a chain space — stitches can be worked into the gap
-}
-```
+### Implementation notes
+- The connection model already supports a single connection point per stitch. Rotation is a property of that connection — specifically, the angle at which the child stitch's base meets the parent's connection point.
+- Each connection should store an **angle offset** from its default orientation. Currently this is implicitly 0 for all connections; making it explicit and editable is the core data model change.
+- When a stitch is rotated, its stored angle offset updates. Its position is then derived from the parent's connection point + the new angle.
+- Propagation: if stitch B is rotated around stitch A's connection point, and stitch C is connected above B, stitch C moves with B (it maintains its own angle relative to B, not relative to the canvas).
+- Save/load must be updated to persist angle offsets.
 
-### 2.2 Compatibility Matrix
-
-Define which anchor types can connect to which. This replaces any generic "top connects to bottom" logic:
-
-| Source (being dragged) | Can connect to                        | Example                              |
-|------------------------|---------------------------------------|--------------------------------------|
-| `STITCH_BASE`          | `STITCH_TOP`, `CHAIN_TOP`, `RING_SLOT`, `SPACE` | dc worked into a sc, into a chain, into a ring, or into a chain space |
-| `CHAIN_RIGHT`          | `CHAIN_LEFT`                          | chain linking to next chain          |
-| `CHAIN_LEFT`           | `CHAIN_RIGHT`                         | chain linking to previous chain      |
-| `STITCH_TOP`           | `STITCH_BASE`                         | a stitch worked into this stitch     |
-| `RING_SLOT`            | `STITCH_BASE`                         | a stitch attached to the ring        |
-| `CHAIN_TOP`            | `STITCH_BASE`                         | a stitch worked into a chain         |
-| `SPACE`                | `STITCH_BASE`                         | a stitch worked into a chain space   |
-
-Store this matrix as a lookup (e.g., a `Map<AnchorType, AnchorType[]>` or a simple object) in the config, not as hardcoded if/else chains. This makes it easy to add new anchor types later.
-
-### 2.3 Updated Symbol Definitions
-
-Update the symbol registry to use the new anchor types. Key changes:
-
-**Chain:**
-- `CHAIN_LEFT` on the left side
-- `CHAIN_RIGHT` on the right side
-- `CHAIN_TOP` on top (so stitches can be worked into the chain)
-
-**Single Crochet / Double Crochet / Half Double / Treble (all standard stitches):**
-- `STITCH_BASE` at the bottom
-- `STITCH_TOP` at the top
-
-**Magic Ring:**
-- Multiple `RING_SLOT` anchors arranged radially (start with 12 slots, spaced evenly around the ring)
-
-**Increase:**
-- `STITCH_BASE` at the bottom (single attachment point — it goes into one stitch)
-- Two `STITCH_TOP` anchors at the top (two stitches come out)
-
-**Decrease:**
-- Two `STITCH_BASE` anchors at the bottom (attaches into two stitches)
-- One `STITCH_TOP` at the top
+### Open questions to resolve before building
+- What is the default orientation of a stitch when it is first placed? (e.g., vertical, pointing away from the center of a ring?) Document this explicitly so rotation is relative to a known baseline.
+- When rotating a stitch that has multiple children connected above it, do all children rotate together? (Recommend: yes — the user is rotating a sub-tree, not an individual stitch)
+- Should there be a "reset rotation" option in a right-click menu?
+- Does the rotation affordance appear on hover, on selection, or always?
 
 ---
 
-## Part 3: Multi-Stitch Connections (Shells, Clusters, Fans)
+## Feature 3: Stitches-Together (sc2tog, dc2tog, etc.)
 
-**Goal:** Allow multiple stitches to be worked into the same anchor point, with automatic radial fan-out arrangement.
+### Why third
+Multi-select is already built (Feature 1). This feature is the simpler of the two merge interactions — it produces a modified appearance but does not create a new node type. It should be stable before the more complex popcorn/cluster feature is built.
 
-### 3.1 Change Anchors from Single to Multi-Occupancy
+### Trigger interaction
+1. User multi-selects two or more adjacent stitches (using the mechanism from Feature 1)
+2. A contextual option appears — either as a floating button near the selection, or as a right-click menu item — labeled **"Join stitches"** or similar
+3. The user confirms; the stitches are merged into a stitches-together symbol
 
-Currently, each anchor connects to at most one other symbol. Change `STITCH_TOP`, `CHAIN_TOP`, and `RING_SLOT` anchors to accept **multiple** incoming connections:
+### Visual rendering rules (fully specified)
 
-```typescript
-interface Anchor {
-  // ... existing fields ...
-  connectedTo: string[];        // change from string | null to string[]
-  maxConnections: number;       // 1 for STITCH_BASE, CHAIN_LEFT, CHAIN_RIGHT
-                                // many for STITCH_TOP (e.g., 6), CHAIN_TOP (e.g., 3), RING_SLOT (e.g., 1 each but ring has many slots)
-}
-```
+**Post normalization:**
+All posts in a stitches-together are rendered at the same length, regardless of the individual stitch heights. The normalized length should be visually consistent with a dc height (a middle-ground that reads naturally for any combination).
 
-When a second stitch is connected to an anchor that already has a connection, don't reject it — accept it and trigger the fan-out layout (see 3.2).
+**Post angles:**
+Posts angle inward symmetrically to meet at a single top point, the same way a dc2tog works in the CYC standard. With N stitches, the posts fan inward evenly.
 
-### 3.2 Radial Fan-Out Layout
+**Per-stitch crossbar:**
+Each post retains its own stitch's characteristic crossbar. The crossbar angle is determined by the stitch type, not by the merged symbol:
+- **sc**: crossbar is perpendicular to the post
+- **hdc, dc, tr, and above**: crossbar is angled (not fully perpendicular), consistent with how those stitches look individually
 
-When multiple stitches connect to the same anchor, automatically arrange them in a fan pattern:
+**Top bar rule:**
+A horizontal bar appears across the top of the merged symbol **if and only if at least one stitch in the group is hdc or above**.
+- sc + sc → no top bar
+- sc + hdc → top bar
+- hdc + dc → top bar
+- dc + dc → top bar
 
-- **1 stitch:** Positioned directly above the anchor (0° — straight up)
-- **2 stitches:** Fanned at roughly -20° and +20° from vertical
-- **3 stitches:** Fanned at -30°, 0°, +30°
-- **N stitches:** Evenly distributed across a fan arc. The arc width should grow with N but cap at ~120° to prevent stitches from going sideways.
+The full dividing line: **hdc, dc, tr = top bar. sc = no top bar.** Slip stitch is not eligible for stitches-together.
 
-Calculation for N stitches:
-```
-totalArc = min(30° * (N - 1), 120°)
-startAngle = -totalArc / 2
-angleStep = totalArc / (N - 1)    // for N > 1
-```
+**Mixed stitch types:**
+A merge across different stitch types is valid. Each post renders with its own crossbar style. The top bar rule applies across the full group regardless of which specific stitches triggered it.
 
-Each connected stitch is positioned at distance `stitchHeight` from the anchor point, at its computed angle. The stitch symbol itself should also be **rotated** to match its angle so it points outward from the fan center.
+### Implementation notes
+- A stitches-together is a new rendering mode for a set of stitches, not a new stitch type. The underlying stitches retain their identities (their stitch type is preserved in the data model) so the rendering rules can be derived from the group.
+- The merged symbol occupies a single connection point at the top (the shared apex) and multiple connection points at the base (one per stitch, matching the original stitches' base connections).
+- Save/load must persist the "joined" state and the group membership.
+- Consider adding a "separate stitches" option in a right-click menu to undo the merge.
 
-### 3.3 Re-Layout on Connect/Disconnect
-
-Every time a stitch is added to or removed from a multi-occupancy anchor:
-
-1. Recalculate the fan angles for all stitches connected to that anchor
-2. Animate each stitch to its new position/rotation (use the same 150–200ms easing from Part 1)
-3. Recursively update positions of anything connected *above* those stitches (their children), since the parent moved
-
-### 3.4 Visual Feedback for Multi-Occupancy
-
-- When dragging a stitch near an anchor that already has connections, show a preview of where the new stitch would fan to (ghost outline at the computed position)
-- Show small numbered badges or dots on the anchor to indicate how many stitches are attached (optional, but helpful)
+### Open questions to resolve before building
+- What is the minimum number of stitches for a stitches-together? (2 is standard, but worth being explicit)
+- Is there a maximum? (3-together exists in real crochet but is rarer)
+- Can a stitches-together be further combined with another stitch-together or individual stitch? (Edge case — probably out of scope for now)
+- What happens if the user tries to join non-adjacent stitches? (Recommend: disallow with a brief error state, e.g., the option grays out)
 
 ---
 
-## Part 4: Chain Behavior
+## Feature 4: Popcorns and Clusters
 
-**Goal:** Chains link together automatically to form foundation chains and chain spaces.
+### Why fourth
+This builds on all three previous features: multiple stitches into one point (already works), multi-select (Feature 1), and the right-click context menu pattern (introduced in Feature 3). The main new work is the visual distinction between popcorn and cluster, and the context menu.
 
-### 4.1 Auto-Linking Chains
+### Trigger interaction
+1. User places multiple stitches into the same connection point (already supported)
+2. User multi-selects those stitches
+3. A right-click menu appears with two options: **"Create cluster"** and **"Create popcorn"**
+4. The user selects one; the stitches are grouped and rendered accordingly
 
-When a chain symbol is placed on the canvas:
+### Visual distinction: cluster vs. popcorn
 
-- If there are other unconnected chain symbols nearby (specifically, if any chain has an open `CHAIN_LEFT` or `CHAIN_RIGHT` anchor within the magnetic zone), auto-snap the new chain to form a continuous line
-- If no chains are nearby, place the chain freely
+**Cluster:**
+Multiple stitches worked together with their tops joined. Visually similar to a stitches-together — posts fan out from a shared base connection point, and their tops are joined at a shared apex. The top bar rule from Feature 3 applies here as well. The cluster is "closed" at the top.
 
-When a chain is connected to another chain via `CHAIN_RIGHT` → `CHAIN_LEFT`, they should visually form a continuous horizontal (or curved) line with no visible gap between them.
+**Popcorn:**
+Multiple stitches worked into the same base, then the first stitch is folded over and joined to the last — creating a raised, rounded effect. Visually, the posts are shown as a group but the top is closed differently than a cluster: a popcorn typically renders with a more pronounced "dome" or closing stitch at the top. Follow the CYC standard symbol for the specific visual.
 
-### 4.2 Foundation Chain Rendering
+### Implementation notes
+- Both cluster and popcorn share the same trigger interaction; they differ only in their rendered appearance and their semantic meaning to a pattern reader.
+- These are new node types in the data model (not just rendering modes), because a popcorn and a cluster behave differently in a pattern even if they look similar at a glance.
+- The right-click menu introduced here can also be the home for "Join stitches" from Feature 3, unifying the interaction pattern: multi-select → right-click → choose action.
+- Consider whether the "Create cluster" and "Create popcorn" options should gray out if the selected stitches are not all connected to the same base point.
+- Save/load must persist the group type (cluster vs. popcorn).
 
-A series of connected chains should render as a cohesive line:
-
-- Chains in a line maintain consistent spacing (the `CHAIN_RIGHT` → `CHAIN_LEFT` connection enforces this)
-- The entire chain line can be curved by the user: support dragging the middle of a chain sequence to bend it into an arc (useful for working in rounds)
-- When a chain line is curved, each individual chain rotates to follow the curve tangent
-
-### 4.3 Chain Spaces
-
-A chain space is the gap between stitches in a row above, bridged by one or more chains. To model this:
-
-- Add a `SPACE` anchor type that exists at the midpoint of a chain (or between two chains in a sequence)
-- This `SPACE` anchor accepts `STITCH_BASE` connections — stitches worked into the chain space
-- Visually, the connected stitch sits above the gap, not attached to a specific chain's top
-
-### 4.4 Stitches Worked Into Chains
-
-Individual chains (not chain spaces) can also have stitches worked directly into them:
-
-- The `CHAIN_TOP` anchor on each chain symbol accepts `STITCH_BASE` connections
-- This is visually distinct from working into a chain space — the stitch sits directly above the specific chain, not in the gap between chains
-- Support multi-occupancy on `CHAIN_TOP` (e.g., shell into a chain) with the same fan-out behavior from Part 3
+### Open questions to resolve before building
+- Should "Join stitches" from Feature 3 be migrated into this right-click menu for consistency? (Recommended: yes, if the right-click menu from Feature 3 was implemented as a floating button instead)
+- What is the minimum stitch count for a popcorn/cluster? (Real crochet is typically 3–5 stitches, but the app probably shouldn't enforce this)
+- Can a cluster contain mixed stitch types? (Yes, based on the same logic as Feature 3 — each post retains its own crossbar)
+- Can a popcorn contain mixed stitch types? (Less common in real crochet — worth deciding whether to allow or restrict)
 
 ---
 
-## Part 5: Row and Round Modes
+## Cross-Cutting Notes
 
-**Goal:** Support the two fundamental crochet construction methods, which affect how connections flow.
+### Interaction consistency
+Features 3 and 4 both involve multi-select → action. By the time Feature 4 is built, consider whether all post-selection actions live in a single right-click context menu. A consistent pattern (select → right-click → choose) is easier to learn than multiple different trigger mechanisms.
 
-### 5.1 Working in Rows
+### Save/load
+Each feature touches the data model. After each feature ships, verify that save/load round-trips correctly before moving to the next feature. The angle offsets from Feature 2 are particularly important to get right early.
 
-When building a flat piece worked in rows:
+### Undo/redo
+All four features should be undoable as single actions. A hinge rotation, a stitch merge, and a cluster creation should each be one undo step, not multiple.
 
-- **Row 1 (foundation):** A foundation chain runs horizontally. Stitches are worked into the chains from left to right (or right to left).
-- **Row 2 and beyond:** The work turns. Stitches are worked into the tops of the row below, going in the opposite direction.
-- **Turning chains:** At the end of each row, one or more chain stitches are added to gain height before turning. The number of turning chains depends on the stitch type (1 for sc, 2 for hdc, 3 for dc, 4 for tr).
-
-**What the app should do:**
-
-- When stitches are connected in a row across the `STITCH_TOP` anchors of a lower row, visually align them in a horizontal line matching the row below
-- Don't enforce strict row structure — let the user freely place stitches, but provide alignment guides (faint horizontal lines) when a stitch is near the vertical level of other stitches in the same connection generation
-
-### 5.2 Working in Rounds
-
-When building in the round (e.g., amigurumi, granny squares):
-
-- **Round 1:** Stitches are worked into a magic ring, fanning out radially
-- **Round 2+:** Stitches are worked into the tops of the round below, forming a concentric ring
-
-**What the app should do:**
-
-- When stitches are connected to a magic ring, use the radial fan-out from Part 3 — this is already the correct behavior for rounds
-- For subsequent rounds: when stitches connect to the tops of a radially arranged round, position them further from the center at the same angles, forming a larger concentric arc
-- Increases in rounds should visually spread the fan, since adding stitches to a round makes the circumference grow
-
-### 5.3 Mode Toggle (Optional Enhancement)
-
-Consider adding a "Row Mode" / "Round Mode" toggle in the editor toolbar. This wouldn't restrict what the user can do, but would change hint behavior:
-
-- **Row mode:** Show horizontal alignment guides, auto-suggest turning chains
-- **Round mode:** Show radial/concentric guides, auto-suggest ring placement
-
-This is a nice-to-have and can be deferred if the core connection improvements are complex enough. Mark it as optional.
-
----
-
-## Part 6: Group Dragging Improvements
-
-**Goal:** Moving connected symbol groups should feel natural and preserve the diagram structure.
-
-### 6.1 Recursive Group Movement
-
-When a user drags a symbol that is connected to others:
-
-- Traverse the full connection graph from the dragged symbol to find all transitively connected symbols
-- Move the entire group together, maintaining relative positions
-- The dragged symbol follows the cursor; all others maintain their offset from it
-
-### 6.2 Subtree vs. Full Group
-
-Add a modifier key behavior:
-
-- **Normal drag:** Moves the entire connected group
-- **Hold Shift + drag:** Moves only the dragged symbol and its "children" (symbols connected above it in the stitch hierarchy), detaching from siblings and the parent below
-
-This lets users rearrange parts of a diagram without breaking everything apart.
-
-### 6.3 Rotation of Connected Groups
-
-- Allow the user to rotate a group by holding a modifier (e.g., Ctrl + drag) or via a rotation handle on the selected group
-- Rotation should pivot around the initially dragged symbol
-- All connected symbols rotate around that pivot, maintaining their relative positions and connection angles
-
----
-
-## Implementation Order
-
-Work through these parts in this order, as each builds on the previous:
-
-1. **Part 2 (Connection Type System)** — Define the new anchor types and compatibility matrix first. This is the foundation everything else depends on. Update the symbol registry. Migrate existing connection data if needed.
-
-2. **Part 1 (Smooth Snapping)** — With the new anchor types in place, implement the proximity feedback, animated transitions, and clean detach behavior.
-
-3. **Part 4 (Chain Behavior)** — Implement chain linking, foundation chain rendering, chain spaces, and stitches-into-chains. This requires the new anchor types from Part 2 and the smooth snapping from Part 1.
-
-4. **Part 3 (Multi-Stitch Connections)** — Implement multi-occupancy anchors and the radial fan-out layout. This is needed before rounds can work properly.
-
-5. **Part 5 (Row and Round Modes)** — With multi-stitch and chain behavior working, implement the row alignment guides and round/concentric positioning.
-
-6. **Part 6 (Group Dragging)** — Polish group movement, add shift-drag for subtree movement, and group rotation.
-
----
-
-## Data Migration Notes
-
-The changes in Part 2 modify the anchor data structure. Existing saved projects use the old format. Handle this with a version check:
-
-- The `canvas_json` already has a `"version"` field — increment it (e.g., from 1 to 2)
-- Write a migration function that runs on load: if `version < 2`, transform old anchor data to the new format (map old anchor names to new `AnchorType` values, convert `connectedTo` from `string | null` to `string[]`)
-- Save the migrated data back on next save so migration only runs once per project
-
----
-
-## Key Technical Notes
-
-1. **Fan-out is a layout concern, not a data concern.** The store tracks connections (which symbols are connected to which anchors). The visual positions and rotation angles of fanned-out stitches are *derived* from the connection data at render time. Don't store computed fan positions — recompute them when connections change.
-
-2. **Animation conflicts with dragging.** During a snap animation, temporarily disable drag handling on the animating symbol. Re-enable it once the tween completes. Use a `isAnimating` flag per symbol or a global animation lock.
-
-3. **Recursive position updates can cascade.** When a fan-out repositions stitches, those stitches may have their own children that also need repositioning. Use a breadth-first traversal from the changed anchor outward to update positions in order, not recursively from leaves.
-
-4. **Chain curves are cosmetic state.** If chains can be bent into arcs, store the curve parameter (e.g., a control point offset) in the chain symbol's data. This is separate from the connection graph — the connections don't change when a chain line is curved, only the visual positions along the curve.
-
-5. **Preserve undo/redo compatibility.** The undo system from the original plan captures state snapshots. The new multi-occupancy anchors and fan-out positions should work transparently with this — since fan positions are derived, undo just needs to restore the connection arrays, and the layout recomputes automatically.
-
-6. **Test with real crochet patterns.** After implementing each part, try building a real pattern — a granny square, a simple amigurumi ball, or a dishcloth swatch. These will surface edge cases faster than abstract testing.
+### Testing approach
+Because users are expected to invest time learning this system, it is worth doing at least one informal usability pass after Feature 2 (hinge rotation) ships — that is the most novel interaction and the one most likely to need iteration on the affordance design before the other features build on top of it.
