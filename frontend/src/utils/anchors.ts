@@ -41,8 +41,20 @@ function isAnchorVisibleForSymbol(
   return isAnchorTypeVisible(anchor.type);
 }
 
+// Resolver for non-built-in symbol anchors. Registered by canvasStore at module load.
+let _customAnchorResolver: ((type: string) => AnchorDef[] | undefined) | null = null;
+
+export function setCustomAnchorResolver(
+  fn: (type: string) => AnchorDef[] | undefined,
+): void {
+  _customAnchorResolver = fn;
+}
+
 export function getSymbolAnchors(symbol: CanvasSymbol): AnchorDef[] {
-  const all = CROCHET_SYMBOLS[symbol.type]?.anchors ?? [];
+  const all =
+    _customAnchorResolver?.(symbol.type) ??
+    CROCHET_SYMBOLS[symbol.type]?.anchors ??
+    [];
   return all.filter((a) => isAnchorVisibleForSymbol(symbol, a));
 }
 
